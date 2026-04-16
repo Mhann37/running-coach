@@ -849,7 +849,7 @@
     const FIREBASE_CONFIG = {
         apiKey: "AIzaSyCeTZWPAZ36HRoTFeOIBGwVEJ-fXbEpgQY",
         authDomain: "running-coach-ee164.firebaseapp.com",
-        projectId: "running-coach-ee164,
+        projectId: "running-coach-ee164",
         storageBucket: "running-coach-ee164.firebasestorage.app",
         messagingSenderId: "965560733067",
         appId: "1:965560733067:web:d32cb09a6840188dd8f38e"
@@ -974,7 +974,7 @@
         if (!authEnabled || !firebaseAuth) return;
         try {
             const provider = new firebase.auth.GoogleAuthProvider();
-            await firebaseAuth.signInWithRedirect(provider);
+            await firebaseAuth.signInWithPopup(provider);
         } catch (e) {
             log(`Google sign-in error: ${e.message}`);
         }
@@ -1181,8 +1181,6 @@
             authEnabled = true;
 
             updateAuthUI();
-            // Handle any pending redirect sign-in result.
-            firebaseAuth.getRedirectResult().catch(() => {});
 
             firebaseAuth.onAuthStateChanged(user => {
                 authUser = user || null;
