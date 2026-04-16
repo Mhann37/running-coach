@@ -314,6 +314,25 @@
         .coach-card.active  { display: block; }
         .ctrl-card  { display: none; }
         .ctrl-card.active { display: block; }
+
+        /* Heart Rate Monitor */
+        .btn-connect-hr { background: linear-gradient(135deg, #dc2626, #9f1239); }
+        .btn-connect-hr:hover { box-shadow: 0 0 18px rgba(220,38,38,0.5); }
+        .hr-metric-highlight {
+            display: flex; align-items: center; justify-content: center;
+            gap: 10px; background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.25); border-radius: 10px;
+            padding: 10px 14px; margin-bottom: 10px;
+        }
+        .hr-metric-highlight.hidden { display: none; }
+        .hr-bpm { font-size: 2em; font-weight: 800; color: #f87171; line-height: 1; }
+        .hr-unit { font-size: 0.85em; color: #64748b; }
+        .hr-zone { font-size: 0.72em; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+        .hr-zone.easy      { background: rgba(16,185,129,0.15); color: #34d399; }
+        .hr-zone.aerobic   { background: rgba(59,130,246,0.15); color: #60a5fa; }
+        .hr-zone.tempo     { background: rgba(251,191,36,0.15);  color: #fbbf24; }
+        .hr-zone.threshold { background: rgba(249,115,22,0.15);  color: #fb923c; }
+        .hr-zone.max       { background: rgba(239,68,68,0.15);   color: #f87171; }
     </style>
 </head>
 <body>
@@ -329,6 +348,10 @@
         <div class="connect-row">
             <button id="connectBtn" class="btn-connect">Connect</button>
             <div id="status" class="status disconnected">Not Connected</div>
+        </div>
+        <div class="connect-row" style="margin-top:8px;">
+            <button id="hrConnectBtn" class="btn-connect btn-connect-hr">HR Monitor</button>
+            <div id="hrStatus" class="status disconnected">HR Not Connected</div>
         </div>
     </div>
 
@@ -398,6 +421,12 @@
     <!-- Live Metrics -->
     <div class="card hidden" id="metricsCard">
         <div class="card-title">Live Metrics</div>
+        <div class="hr-metric-highlight hidden" id="hrMetricWrap">
+            <span style="font-size:1.2em;">❤️</span>
+            <span id="hrMetric" class="hr-bpm">--</span>
+            <span class="hr-unit">bpm</span>
+            <span id="hrZoneLabel" class="hr-zone"></span>
+        </div>
         <div class="metrics-grid">
             <div class="metric">
                 <div class="metric-label">Pace</div>
@@ -464,6 +493,9 @@
     const TREADMILL_DATA_UUID = 0x2ACD;
     const CONTROL_POINT_UUID  = 0x2AD9;
 
+    const HR_SERVICE_UUID     = 0x180D;   // Heart Rate Service
+    const HR_MEASUREMENT_UUID = 0x2A37;   // Heart Rate Measurement
+
     const SPEED_STEP    = 0.5;
     const INCLINE_STEP  = 0.5;
     const SPEED_MIN     = 0;
@@ -489,6 +521,13 @@
     let goalDistance                = null; // km, or null
     let goalTime                    = null; // minutes, or null
     let goalConfirmed               = false;
+
+    // HR Monitor state
+    let hrDevice            = null;
+    let hrCharacteristic    = null;
+    let hrBpm               = 0;
+    let hrManualDisconnect  = false;
+    let hrReconnectAttempts = 0;
 
     // Session tracking for history
     let sessionMaxSpeed   = 0;
@@ -524,6 +563,12 @@
     const preset7Btn    = document.getElementById('preset7');
     const preset12Btn   = document.getElementById('preset12');
     const preset15Btn   = document.getElementById('preset15');
+
+    const hrConnectBtn   = document.getElementById('hrConnectBtn');
+    const hrStatusDiv    = document.getElementById('hrStatus');
+    const hrMetricWrap   = document.getElementById('hrMetricWrap');
+    const hrMetricEl     = document.getElementById('hrMetric');
+    const hrZoneLabelEl  = document.getElementById('hrZoneLabel');
 
     const goalDistanceInput = document.getElementById('goalDistanceInput');
     const goalTimeInput     = document.getElementById('goalTimeInput');
@@ -578,6 +623,22 @@
         goalSummary.classList.remove('active');
         goalInputSection.style.display = '';
         goalConfirmed = false;
+    });
+
+    hrConnectBtn.addEventListener('click', async () => {
+        if (hrDevice && hrDevice.gatt.connected) {
+            hrManualDisconnect = true;
+            hrDevice.gatt.disconnect();
+        } else {
+            try {
+                hrManualDisconnect = false;
+                hrReconnectAttempts = 0;
+                await connectToHRMonitor();
+            } catch (err) {
+                log(`HR connection error: ${err.message}`);
+                updateHRStatus('disconnected', 'HR Not Connected');
+            }
+        }
     });
 
     // Re-attempt connection when user switches back to this tab/app
@@ -763,6 +824,89 @@
          preset7Btn, preset12Btn, preset15Btn].forEach(b => b.disabled = !on);
     }
 
+    // ── Heart Rate Monitor ─────────────────────────────────────────────────────
+    async function connectToHRMonitor() {
+        updateHRStatus('connecting', 'Searching for HR...');
+        log('Requesting HR monitor device...');
+        hrDevice = await navigator.bluetooth.requestDevice({
+            filters: [{ services: [HR_SERVICE_UUID] }],
+            optionalServices: [HR_SERVICE_UUID]
+        });
+        log(`HR device: ${hrDevice.name}`);
+        updateHRStatus('connecting', `Connecting to ${hrDevice.name}…`);
+        await establishHRConnection();
+        hrDevice.addEventListener('gattserverdisconnected', handleHRDisconnection);
+        updateHRStatus('connected', `HR: ${hrDevice.name}`);
+        hrConnectBtn.textContent = 'Disconnect HR';
+    }
+
+    async function establishHRConnection() {
+        const server  = await hrDevice.gatt.connect();
+        const service = await server.getPrimaryService(HR_SERVICE_UUID);
+        hrCharacteristic = await service.getCharacteristic(HR_MEASUREMENT_UUID);
+        await hrCharacteristic.startNotifications();
+        hrCharacteristic.addEventListener('characteristicvaluechanged', handleHRData);
+        log('HR Monitor notifications started');
+    }
+
+    function handleHRData(event) {
+        const value = event.target.value;
+        const flags = value.getUint8(0);
+        hrBpm = (flags & 0x01) ? value.getUint16(1, true) : value.getUint8(1);
+        updateHRDisplay(hrBpm);
+        log(`HR: ${hrBpm} bpm`);
+    }
+
+    function updateHRDisplay(bpm) {
+        if (bpm <= 0) { hrMetricWrap.classList.add('hidden'); return; }
+        hrMetricEl.textContent = bpm;
+        let zoneClass, zoneText;
+        if      (bpm < 120) { zoneClass = 'easy';      zoneText = 'Easy'; }
+        else if (bpm < 140) { zoneClass = 'aerobic';   zoneText = 'Aerobic'; }
+        else if (bpm < 160) { zoneClass = 'tempo';     zoneText = 'Tempo'; }
+        else if (bpm < 175) { zoneClass = 'threshold'; zoneText = 'Threshold'; }
+        else                { zoneClass = 'max';       zoneText = 'Max'; }
+        hrZoneLabelEl.className = `hr-zone ${zoneClass}`;
+        hrZoneLabelEl.textContent = zoneText;
+        hrMetricWrap.classList.remove('hidden');
+    }
+
+    async function handleHRDisconnection() {
+        log('HR monitor disconnected');
+        if (hrManualDisconnect) {
+            hrBpm = 0;
+            updateHRDisplay(0);
+            updateHRStatus('disconnected', 'HR Not Connected');
+            hrConnectBtn.textContent = 'HR Monitor';
+            return;
+        }
+        if (hrReconnectAttempts < MAX_RECONNECT_TRIES) {
+            hrReconnectAttempts++;
+            updateHRStatus('reconnecting', `HR reconnecting… (${hrReconnectAttempts}/${MAX_RECONNECT_TRIES})`);
+            await new Promise(r => setTimeout(r, hrReconnectAttempts * 1500));
+            try {
+                hrCharacteristic?.removeEventListener('characteristicvaluechanged', handleHRData);
+                await establishHRConnection();
+                updateHRStatus('connected', `HR: ${hrDevice.name}`);
+                hrReconnectAttempts = 0;
+                log('HR Monitor reconnected');
+            } catch (e) {
+                log(`HR reconnect ${hrReconnectAttempts} failed: ${e.message}`);
+                await handleHRDisconnection();
+            }
+        } else {
+            hrBpm = 0;
+            updateHRDisplay(0);
+            updateHRStatus('disconnected', 'HR signal lost');
+            hrConnectBtn.textContent = 'HR Monitor';
+        }
+    }
+
+    function updateHRStatus(state, message) {
+        hrStatusDiv.className = `status ${state}`;
+        hrStatusDiv.textContent = message;
+    }
+
     // ── Speed / Incline ────────────────────────────────────────────────────────
     function adjustSpeed(delta) {
         const v = parseFloat((targetSpeed + delta).toFixed(1));
@@ -889,6 +1033,11 @@
 
         inclineEl.textContent  = data.incline.toFixed(1);
         caloriesEl.textContent = data.calories;
+
+        // Show treadmill-reported HR if no external HR monitor is active
+        if (hrBpm === 0 && data.heartRate > 0) {
+            updateHRDisplay(data.heartRate);
+        }
     }
 
     // ── Coaching ───────────────────────────────────────────────────────────────
@@ -925,6 +1074,30 @@
         nextCoachCountdown = COACHING_INTERVAL / 1000;
     }
 
+    // ── Pace analysis helpers ──────────────────────────────────────────────────
+    function formatPace(minPerKm) {
+        if (!isFinite(minPerKm) || minPerKm <= 0) return '--:--';
+        const m = Math.floor(minPerKm);
+        const s = Math.round((minPerKm - m) * 60);
+        return `${m}:${s.toString().padStart(2, '0')}/km`;
+    }
+
+    // Returns pace analysis when both distance+time goals are set, otherwise null.
+    function analyzePace(data) {
+        if (!goalDistance || !goalTime) return null;
+        const elapsedMin    = data.time / 60;
+        const remainingDist = goalDistance - data.distance;
+        const remainingMin  = goalTime - elapsedMin;
+        if (remainingDist <= 0 || remainingMin <= 0) return null;
+        const requiredSpeedKmh  = (remainingDist / remainingMin) * 60;
+        const requiredPaceMin   = 60 / requiredSpeedKmh;
+        const speedGap          = requiredSpeedKmh - data.speed; // positive = need to go faster
+        const projectedTotalMin = data.speed > 0
+            ? elapsedMin + (remainingDist / data.speed) * 60
+            : null;
+        return { requiredSpeedKmh, requiredPaceMin, speedGap, projectedTotalMin };
+    }
+
     function buildCoachMessage(data) {
         const elapsedMin = data.time / 60;
         let emoji = '🎯';
@@ -932,10 +1105,11 @@
 
         // ── Goal-aware opening ──────────────────────────────────────────────
         if (goalDistance && goalTime) {
-            const distPct = Math.min(100, (data.distance / goalDistance) * 100);
-            const timePct = Math.min(100, (elapsedMin / goalTime) * 100);
+            const distPct   = Math.min(100, (data.distance / goalDistance) * 100);
+            const timePct   = Math.min(100, (elapsedMin / goalTime) * 100);
             const remaining = goalDistance - data.distance;
             const timeLeft  = goalTime - elapsedMin;
+            const pace      = analyzePace(data);
 
             if (distPct >= 100 && timePct >= 100) {
                 emoji = '🏆';
@@ -945,25 +1119,51 @@
                 lines.push(`Distance goal smashed! ${goalDistance} km done. Keep the legs moving — ${Math.max(0, timeLeft).toFixed(1)} min still on the clock.`);
             } else if (timePct >= 100) {
                 emoji = '⏱️';
-                lines.push(`Time's up! You covered ${data.distance.toFixed(2)} km — ${remaining > 0 ? remaining.toFixed(2) + ' km short of your distance goal. So close!' : 'goal complete!'}`);
-            } else if (distPct > 75 || timePct > 75) {
-                emoji = '💥';
-                lines.push(`Final stretch — ${remaining.toFixed(2)} km to go! You are ${distPct.toFixed(0)}% there. Don't back off now!`);
-            } else if (distPct > 50 || timePct > 50) {
-                emoji = '💪';
-                lines.push(`Over halfway! ${data.distance.toFixed(2)} of ${goalDistance} km done. ${remaining.toFixed(2)} km remaining — you've got this.`);
-            } else if (distPct > 25 || timePct > 25) {
-                emoji = '🏃';
-                lines.push(`Good progress — ${data.distance.toFixed(2)} km covered toward your ${goalDistance} km target. Stay strong.`);
-            } else {
-                emoji = '🚀';
-                lines.push(`Great start! ${goalDistance} km goal locked in. Settle into your rhythm — ${remaining.toFixed(2)} km to go.`);
+                lines.push(`Time's up! You covered ${data.distance.toFixed(2)} km — ${remaining > 0 ? remaining.toFixed(2) + ' km short of your goal.' : 'goal complete!'}`);
+            } else if (pace) {
+                // ── Situationally-aware pace coaching ──────────────────────
+                const reqSpd     = pace.requiredSpeedKmh;
+                const reqPaceStr = formatPace(pace.requiredPaceMin);
+
+                if (data.speed === 0) {
+                    emoji = data.time < 15 ? '🚀' : '⏸️';
+                    lines.push(`Need ${reqSpd.toFixed(1)} km/h (${reqPaceStr}) to hit ${goalDistance} km in ${goalTime} min. Get moving!`);
+
+                } else if (pace.speedGap > 2.5) {
+                    // Significantly behind — call it out clearly
+                    emoji = '⚠️';
+                    const overBy = pace.projectedTotalMin
+                        ? ` At this pace you'll finish in ~${pace.projectedTotalMin.toFixed(0)} min — ${(pace.projectedTotalMin - goalTime).toFixed(0)} min over target.`
+                        : '';
+                    lines.push(`Pace alert! You need ${reqSpd.toFixed(1)} km/h (${reqPaceStr}) but you're only doing ${data.speed.toFixed(1)} km/h.${overBy} Lift the pace by ${pace.speedGap.toFixed(1)} km/h now to stay on course.`);
+
+                } else if (pace.speedGap > 0.5) {
+                    // Moderately behind
+                    emoji = '📈';
+                    lines.push(`Behind target pace — push to ${reqSpd.toFixed(1)} km/h (${reqPaceStr}). You're at ${data.speed.toFixed(1)} km/h, ${pace.speedGap.toFixed(1)} km/h short. ${remaining.toFixed(2)} km left.`);
+
+                } else if (pace.speedGap < -0.5) {
+                    // Ahead of pace
+                    emoji = distPct > 75 ? '💥' : distPct > 50 ? '💪' : '🚀';
+                    const progressMsg = distPct > 75 ? 'Home stretch!'
+                                      : distPct > 50 ? 'Over halfway!'
+                                      : 'Great start!';
+                    lines.push(`${progressMsg} You're ${(-pace.speedGap).toFixed(1)} km/h ahead of target pace — excellent! ${goalDistance} km in ${goalTime} min is comfortably within reach.`);
+
+                } else {
+                    // On pace
+                    emoji = distPct > 75 ? '💥' : distPct > 50 ? '💪' : distPct > 25 ? '🏃' : '✅';
+                    const progressMsg = distPct > 75 ? `Final stretch — ${remaining.toFixed(2)} km to go!`
+                                      : distPct > 50 ? `Over halfway! ${remaining.toFixed(2)} km left.`
+                                      : distPct > 25 ? `Good progress — ${data.distance.toFixed(2)} km done.`
+                                      : `Great start!`;
+                    lines.push(`${progressMsg} Right on target pace — ${data.speed.toFixed(1)} km/h (need ${reqSpd.toFixed(1)} km/h). Keep it up!`);
+                }
             }
 
         } else if (goalDistance) {
             const remaining = goalDistance - data.distance;
             const distPct   = Math.min(100, (data.distance / goalDistance) * 100);
-
             if (distPct >= 100) {
                 emoji = '🏆'; lines.push(`Goal reached! ${goalDistance} km complete — outstanding effort!`);
             } else if (distPct > 75) {
@@ -977,19 +1177,18 @@
         } else if (goalTime) {
             const timeLeft = goalTime - elapsedMin;
             const timePct  = Math.min(100, (elapsedMin / goalTime) * 100);
-
             if (timePct >= 100) {
                 emoji = '🏆'; lines.push(`${goalTime} minutes done — you absolutely crushed it! Great session.`);
             } else if (timePct > 75) {
                 emoji = '💥'; lines.push(`Last ${timeLeft.toFixed(1)} minutes — this is where champions are made. Push!`);
             } else if (timePct > 50) {
-                emoji = '💪'; lines.push(`${elapsedMin.toFixed(1)} min in, ${timeLeft.toFixed(1)} to go. You're over halfway — keep rolling.`);
+                emoji = '💪'; lines.push(`${elapsedMin.toFixed(1)} min in, ${timeLeft.toFixed(1)} to go. Over halfway — keep rolling.`);
             } else {
                 emoji = '🚀'; lines.push(`${goalTime} min session underway. ${timeLeft.toFixed(1)} min remaining — pace yourself.`);
             }
 
         } else {
-            // No goal — standard speed-based message
+            // No goal — speed-based message
             if (data.speed === 0) {
                 emoji = '⏸️';
                 lines.push("Ready when you are. Set a goal above or jump on and start running!");
@@ -998,26 +1197,36 @@
                 lines.push(`Nice warm-up at ${data.speed.toFixed(1)} km/h. Loosen up those legs.`);
             } else if (data.speed < 8) {
                 emoji = '🏃';
-                lines.push(`Solid easy pace at ${data.speed.toFixed(1)} km/h. Building your aerobic base — this is where the magic happens.`);
+                lines.push(`Solid easy pace at ${data.speed.toFixed(1)} km/h. Building your aerobic base.`);
             } else if (data.speed < 11) {
                 emoji = '💪';
-                lines.push(`Great tempo at ${data.speed.toFixed(1)} km/h! Keep that breathing steady and controlled.`);
+                lines.push(`Great tempo at ${data.speed.toFixed(1)} km/h! Keep that breathing steady.`);
             } else {
                 emoji = '🔥';
-                lines.push(`Speed work at ${data.speed.toFixed(1)} km/h — that's fast! Stay tall, drive the arms.`);
+                lines.push(`Speed work at ${data.speed.toFixed(1)} km/h — stay tall, drive the arms.`);
             }
+        }
+
+        // ── Heart Rate feedback ─────────────────────────────────────────────
+        const displayHR = hrBpm > 0 ? hrBpm : (data.heartRate || 0);
+        if (displayHR > 0) {
+            if      (displayHR < 120) lines.push(`HR ${displayHR} bpm — very easy, plenty left in the tank.`);
+            else if (displayHR < 140) lines.push(`HR ${displayHR} bpm — aerobic zone. Sustainable effort.`);
+            else if (displayHR < 160) lines.push(`HR ${displayHR} bpm — tempo zone. Strong work.`);
+            else if (displayHR < 175) lines.push(`HR ${displayHR} bpm — threshold zone. Tough, hold on!`);
+            else                      lines.push(`HR ${displayHR} bpm — near max! Ease off if you need to.`);
         }
 
         // ── Incline bonus ───────────────────────────────────────────────────
         if (data.incline >= 3) {
-            lines.push(`${data.incline.toFixed(1)}% incline is serious hill work — your glutes and calves will thank you.`);
+            lines.push(`${data.incline.toFixed(1)}% incline — serious hill work. Glutes on fire!`);
         } else if (data.incline >= 1) {
-            lines.push(`Running at ${data.incline.toFixed(1)}% incline — great for simulating real-road effort.`);
+            lines.push(`${data.incline.toFixed(1)}% incline — simulating real-road effort.`);
         }
 
         // ── Distance milestone ──────────────────────────────────────────────
         if (data.distance >= 1 && data.distance % 1 < 0.05) {
-            lines.push(`${Math.round(data.distance)} km milestone — every kilometre counts!`);
+            lines.push(`${Math.round(data.distance)} km — every kilometre counts!`);
         }
 
         return { emoji, message: lines.join(' ') };
