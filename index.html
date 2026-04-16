@@ -11,7 +11,7 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: #08081a;
             min-height: 100vh;
-            padding: 10px 12px;
+            padding: 10px 12px 24px;
             color: #e2e8f0;
         }
 
@@ -21,17 +21,8 @@
             text-align: center;
             padding: 6px 0 10px;
         }
-        .header h1 {
-            font-size: 1.3em;
-            font-weight: 700;
-            color: #fff;
-            letter-spacing: 0.5px;
-        }
-        .header p {
-            font-size: 0.75em;
-            color: #4f46e5;
-            margin-top: 2px;
-        }
+        .header h1 { font-size: 1.3em; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+        .header p  { font-size: 0.75em; color: #4f46e5; margin-top: 2px; }
 
         .card {
             background: #12121e;
@@ -39,7 +30,7 @@
             padding: 12px 14px;
             margin-bottom: 8px;
             border: 1px solid #1e1e38;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.5);
         }
 
         .card-title {
@@ -51,12 +42,8 @@
             margin-bottom: 9px;
         }
 
-        /* Connect section */
-        .connect-row {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
+        /* Connect */
+        .connect-row { display: flex; gap: 10px; align-items: center; }
 
         .btn-connect {
             background: linear-gradient(135deg, #4f46e5, #7c3aed);
@@ -71,8 +58,8 @@
             flex-shrink: 0;
             letter-spacing: 0.3px;
         }
-        .btn-connect:hover { opacity: 0.85; transform: translateY(-1px); box-shadow: 0 0 18px rgba(124, 58, 237, 0.5); }
-        .btn-connect:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-connect:hover  { opacity: 0.85; transform: translateY(-1px); box-shadow: 0 0 18px rgba(124,58,237,0.5); }
+        .btn-connect:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
 
         .status {
             padding: 8px 10px;
@@ -82,9 +69,101 @@
             flex: 1;
             text-align: center;
         }
-        .status.disconnected { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
-        .status.connecting   { background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
-        .status.connected    { background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.25); }
+        .status.disconnected { background: rgba(239,68,68,0.12);   color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+        .status.connecting   { background: rgba(251,191,36,0.12);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+        .status.connected    { background: rgba(16,185,129,0.12);  color: #34d399; border: 1px solid rgba(16,185,129,0.25); }
+        .status.reconnecting { background: rgba(251,146,60,0.12);  color: #fb923c; border: 1px solid rgba(251,146,60,0.25); }
+
+        /* Goal card */
+        .goal-card { display: none; }
+        .goal-card.active { display: block; }
+
+        .goal-header {
+            font-size: 1em;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+        .goal-subtext {
+            font-size: 0.78em;
+            color: #64748b;
+            margin-bottom: 12px;
+        }
+
+        .goal-inputs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .goal-field {
+            flex: 1;
+            background: #0a0a18;
+            border: 1px solid #2a2a48;
+            border-radius: 10px;
+            padding: 10px 12px;
+        }
+        .goal-field label {
+            display: block;
+            font-size: 0.68em;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 5px;
+        }
+        .goal-field input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-size: 1.4em;
+            font-weight: 800;
+            color: #00e5ff;
+            font-family: inherit;
+        }
+        .goal-field input::placeholder { color: #2a3a52; }
+        .goal-field .goal-unit {
+            font-size: 0.72em;
+            color: #334155;
+            margin-top: 2px;
+        }
+
+        .btn-goal {
+            width: 100%;
+            background: linear-gradient(135deg, #059669, #047857);
+            color: white;
+            border: none;
+            padding: 11px;
+            font-size: 0.95em;
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.4px;
+        }
+        .btn-goal:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        .goal-summary {
+            display: none;
+            background: rgba(5,150,105,0.1);
+            border: 1px solid rgba(5,150,105,0.3);
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-size: 0.82em;
+            color: #34d399;
+            font-weight: 600;
+        }
+        .goal-summary.active { display: flex; align-items: center; gap: 8px; }
+        .btn-edit-goal {
+            margin-left: auto;
+            background: none;
+            border: 1px solid rgba(5,150,105,0.4);
+            color: #34d399;
+            font-size: 0.78em;
+            padding: 3px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
 
         /* Coach message */
         .coaching-message {
@@ -103,546 +182,969 @@
             color: #c084fc;
             letter-spacing: 0.3px;
         }
+        .coach-timer {
+            font-size: 0.68em;
+            color: #3b2f6e;
+            margin-top: 6px;
+            text-align: right;
+        }
 
         /* Controls */
-        .control-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 8px;
-        }
+        .control-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
         .control-label {
-            font-size: 0.78em;
-            color: #64748b;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            width: 52px;
-            flex-shrink: 0;
+            font-size: 0.78em; color: #64748b; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.5px; width: 52px; flex-shrink: 0;
         }
-        .control-value-wrap {
-            flex: 1;
-            text-align: center;
-        }
-        .control-value {
-            font-size: 1.5em;
-            font-weight: 800;
-            color: #00e5ff;
-            line-height: 1;
-        }
-        .control-unit {
-            font-size: 0.5em;
-            color: #475569;
-            margin-left: 3px;
-            font-weight: 500;
-        }
+        .control-value-wrap { flex: 1; text-align: center; }
+        .control-value { font-size: 1.5em; font-weight: 800; color: #00e5ff; line-height: 1; }
+        .control-unit  { font-size: 0.5em; color: #475569; margin-left: 3px; font-weight: 500; }
 
         .btn-ctrl {
-            background: #1a1a30;
-            color: #00e5ff;
-            border: 1px solid #2a2a48;
-            width: 42px;
-            height: 42px;
-            border-radius: 10px;
-            font-size: 1.5em;
-            font-weight: 300;
-            cursor: pointer;
-            transition: all 0.15s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            line-height: 1;
+            background: #1a1a30; color: #00e5ff; border: 1px solid #2a2a48;
+            width: 42px; height: 42px; border-radius: 10px; font-size: 1.5em;
+            font-weight: 300; cursor: pointer; transition: all 0.15s;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0; line-height: 1;
         }
-        .btn-ctrl:hover:not(:disabled) { background: #252540; box-shadow: 0 0 12px rgba(0, 229, 255, 0.3); }
+        .btn-ctrl:hover:not(:disabled) { background: #252540; box-shadow: 0 0 12px rgba(0,229,255,0.3); }
         .btn-ctrl:active:not(:disabled) { transform: scale(0.9); }
         .btn-ctrl:disabled { opacity: 0.25; cursor: not-allowed; }
 
-        .presets {
-            display: flex;
-            gap: 6px;
-            margin-top: 2px;
-            margin-bottom: 10px;
-            padding-left: 60px;
-        }
+        .presets { display: flex; gap: 6px; margin-top: 2px; margin-bottom: 10px; padding-left: 60px; }
         .btn-preset {
-            flex: 1;
-            background: #1a1a30;
-            color: #a78bfa;
-            border: 1px solid #2a2a48;
-            padding: 6px 4px;
-            border-radius: 8px;
-            font-size: 0.78em;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.15s;
-            text-align: center;
+            flex: 1; background: #1a1a30; color: #a78bfa; border: 1px solid #2a2a48;
+            padding: 6px 4px; border-radius: 8px; font-size: 0.78em; font-weight: 700;
+            cursor: pointer; transition: all 0.15s; text-align: center;
         }
         .btn-preset:hover:not(:disabled) { background: #252540; color: #c4b5fd; box-shadow: 0 0 10px rgba(167,139,250,0.3); }
         .btn-preset:disabled { opacity: 0.25; cursor: not-allowed; }
-
         .ctrl-divider { height: 1px; background: #1e1e38; margin: 8px 0; }
 
         /* Metrics */
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 7px;
+        .metrics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
+        .metric {
+            background: #0a0a18; padding: 10px 8px; border-radius: 10px;
+            text-align: center; border: 1px solid #1e1e38;
+        }
+        .metric-label { font-size: 0.68em; color: #475569; margin-bottom: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
+        .metric-value { font-size: 1.55em; font-weight: 800; color: #00e5ff; line-height: 1.1; }
+        .metric-unit  { font-size: 0.5em; color: #334155; margin-left: 2px; font-weight: 500; }
+
+        /* Goal progress bar */
+        .goal-progress {
+            display: none;
+            margin-top: 10px;
+        }
+        .goal-progress.active { display: block; }
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7em;
+            color: #475569;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        .progress-track {
+            height: 6px;
+            background: #1e1e38;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 6px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #059669, #34d399);
+            border-radius: 3px;
+            transition: width 0.5s ease;
+            width: 0%;
         }
 
-        .metric {
-            background: #0a0a18;
-            padding: 10px 8px;
-            border-radius: 10px;
-            text-align: center;
-            border: 1px solid #1e1e38;
-        }
-        .metric-label {
-            font-size: 0.68em;
-            color: #475569;
-            margin-bottom: 3px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-        }
-        .metric-value {
-            font-size: 1.55em;
-            font-weight: 800;
-            color: #00e5ff;
-            line-height: 1.1;
-        }
-        .metric-unit {
-            font-size: 0.5em;
+        /* Workout history */
+        .history-card { display: none; }
+        .history-card.active { display: block; }
+
+        .history-empty {
+            font-size: 0.8em;
             color: #334155;
-            margin-left: 2px;
-            font-weight: 500;
+            text-align: center;
+            padding: 8px 0;
         }
+        .history-item {
+            background: #0a0a18;
+            border: 1px solid #1e1e38;
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 6px;
+        }
+        .history-item:last-child { margin-bottom: 0; }
+        .history-date {
+            font-size: 0.7em;
+            color: #475569;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .history-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+        }
+        .history-stat { text-align: center; }
+        .history-stat-val { font-size: 1em; font-weight: 800; color: #00e5ff; }
+        .history-stat-lbl { font-size: 0.62em; color: #334155; text-transform: uppercase; letter-spacing: 0.5px; }
+        .history-goal-badge {
+            display: inline-block;
+            font-size: 0.65em;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 5px;
+            margin-top: 6px;
+        }
+        .history-goal-badge.achieved { background: rgba(5,150,105,0.15); color: #34d399; border: 1px solid rgba(5,150,105,0.3); }
+        .history-goal-badge.partial  { background: rgba(251,191,36,0.1);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
 
         /* Debug */
-        .debug-summary {
-            cursor: pointer;
-            font-size: 0.8em;
-            font-weight: 600;
-            color: #312e81;
-            user-select: none;
-        }
+        .debug-summary { cursor: pointer; font-size: 0.8em; font-weight: 600; color: #312e81; user-select: none; }
         .debug {
-            font-family: 'Courier New', monospace;
-            font-size: 0.72em;
-            color: #334155;
-            margin-top: 8px;
-            padding: 10px;
-            background: #080812;
-            border-radius: 8px;
-            max-height: 130px;
-            overflow-y: auto;
+            font-family: 'Courier New', monospace; font-size: 0.72em; color: #334155;
+            margin-top: 8px; padding: 10px; background: #080812; border-radius: 8px;
+            max-height: 130px; overflow-y: auto;
         }
 
         .hidden { display: none; }
         .coach-card  { display: none; }
         .coach-card.active  { display: block; }
-        .ctrl-card { display: none; }
+        .ctrl-card  { display: none; }
         .ctrl-card.active { display: block; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🏃 Running Coach</h1>
-            <p>Real-time treadmill coaching via BLE</p>
-        </div>
+<div class="container">
 
-        <!-- Connect -->
-        <div class="card">
-            <div class="connect-row">
-                <button id="connectBtn" class="btn-connect">Connect</button>
-                <div id="status" class="status disconnected">Not Connected</div>
-            </div>
-        </div>
+    <div class="header">
+        <h1>🏃 Running Coach</h1>
+        <p>Real-time treadmill coaching via BLE</p>
+    </div>
 
-        <!-- Coach Feedback -->
-        <div class="card coach-card" id="coachingCard">
-            <div class="card-title">Coach</div>
-            <div class="coaching-message" id="coachingMessage">
-                <strong>🎯 Ready to go!</strong>
-                Start your run and I'll provide real-time coaching feedback.
-            </div>
-        </div>
-
-        <!-- Speed & Incline Controls -->
-        <div class="card ctrl-card" id="controlsCard">
-            <div class="card-title">Controls</div>
-
-            <div class="control-row">
-                <span class="control-label">Speed</span>
-                <button class="btn-ctrl" id="speedDown" disabled>−</button>
-                <div class="control-value-wrap">
-                    <span class="control-value" id="targetSpeed">0.0</span><span class="control-unit">km/h</span>
-                </div>
-                <button class="btn-ctrl" id="speedUp" disabled>+</button>
-            </div>
-            <div class="presets">
-                <button class="btn-preset" id="preset7"  disabled>7 km/h</button>
-                <button class="btn-preset" id="preset12" disabled>12.5 km/h</button>
-                <button class="btn-preset" id="preset15" disabled>15 km/h</button>
-            </div>
-
-            <div class="ctrl-divider"></div>
-
-            <div class="control-row">
-                <span class="control-label">Incline</span>
-                <button class="btn-ctrl" id="inclineDown" disabled>−</button>
-                <div class="control-value-wrap">
-                    <span class="control-value" id="targetIncline">0.0</span><span class="control-unit">%</span>
-                </div>
-                <button class="btn-ctrl" id="inclineUp" disabled>+</button>
-            </div>
-        </div>
-
-        <!-- Live Metrics -->
-        <div class="card hidden" id="metricsCard">
-            <div class="card-title">Live Metrics</div>
-            <div class="metrics-grid">
-                <div class="metric">
-                    <div class="metric-label">Pace</div>
-                    <div class="metric-value"><span id="pace">--:--</span><span class="metric-unit">/km</span></div>
-                </div>
-                <div class="metric">
-                    <div class="metric-label">Speed</div>
-                    <div class="metric-value"><span id="speed">0.0</span><span class="metric-unit">km/h</span></div>
-                </div>
-                <div class="metric">
-                    <div class="metric-label">Distance</div>
-                    <div class="metric-value"><span id="distance">0.00</span><span class="metric-unit">km</span></div>
-                </div>
-                <div class="metric">
-                    <div class="metric-label">Time</div>
-                    <div class="metric-value"><span id="time">00:00</span></div>
-                </div>
-                <div class="metric">
-                    <div class="metric-label">Incline</div>
-                    <div class="metric-value"><span id="incline">0.0</span><span class="metric-unit">%</span></div>
-                </div>
-                <div class="metric">
-                    <div class="metric-label">Calories</div>
-                    <div class="metric-value"><span id="calories">0</span><span class="metric-unit">kcal</span></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Debug -->
-        <div class="card">
-            <details>
-                <summary class="debug-summary">Debug Info</summary>
-                <div id="debug" class="debug"></div>
-            </details>
+    <!-- Connect -->
+    <div class="card">
+        <div class="connect-row">
+            <button id="connectBtn" class="btn-connect">Connect</button>
+            <div id="status" class="status disconnected">Not Connected</div>
         </div>
     </div>
 
-    <script>
-        // FTMS (Fitness Machine Service) UUIDs
-        const FTMS_SERVICE_UUID      = 0x1826;
-        const TREADMILL_DATA_UUID    = 0x2ACD;
-        const CONTROL_POINT_UUID     = 0x2AD9;
+    <!-- Goal Input Card -->
+    <div class="card goal-card" id="goalCard">
+        <div class="card-title">Today's Goal</div>
+        <div id="goalInputSection">
+            <div class="goal-header">What are you aiming for today?</div>
+            <div class="goal-subtext">Set a target to get personalised coaching. Leave blank to run freely.</div>
+            <div class="goal-inputs">
+                <div class="goal-field">
+                    <label>Distance</label>
+                    <input type="number" id="goalDistanceInput" placeholder="—" min="0.1" max="100" step="0.1">
+                    <div class="goal-unit">kilometres</div>
+                </div>
+                <div class="goal-field">
+                    <label>Time</label>
+                    <input type="number" id="goalTimeInput" placeholder="—" min="1" max="600" step="1">
+                    <div class="goal-unit">minutes</div>
+                </div>
+            </div>
+            <button class="btn-goal" id="setGoalBtn">Let's Go!</button>
+        </div>
+        <div class="goal-summary" id="goalSummary">
+            <span id="goalSummaryText"></span>
+            <button class="btn-edit-goal" id="editGoalBtn">Edit</button>
+        </div>
+    </div>
 
-        const SPEED_STEP   = 0.5;
-        const INCLINE_STEP = 0.5;
-        const SPEED_MIN    = 0;
-        const SPEED_MAX    = 25;
-        const INCLINE_MIN  = 0;
-        const INCLINE_MAX  = 15;
-        const COACHING_INTERVAL = 15000;
+    <!-- Coach Feedback -->
+    <div class="card coach-card" id="coachingCard">
+        <div class="card-title">Coach</div>
+        <div class="coaching-message" id="coachingMessage">
+            <strong>🎯 Ready to go!</strong>
+            Set your goal above, then start your run for real-time coaching.
+        </div>
+        <div class="coach-timer" id="coachTimer"></div>
+    </div>
 
-        let device = null;
-        let treadmillDataCharacteristic = null;
-        let controlPointCharacteristic  = null;
-        let startTime        = null;
-        let lastCoachingTime = 0;
-        let targetSpeed   = 0;
-        let targetIncline = 0;
+    <!-- Speed & Incline Controls -->
+    <div class="card ctrl-card" id="controlsCard">
+        <div class="card-title">Controls</div>
+        <div class="control-row">
+            <span class="control-label">Speed</span>
+            <button class="btn-ctrl" id="speedDown" disabled>−</button>
+            <div class="control-value-wrap">
+                <span class="control-value" id="targetSpeed">0.0</span><span class="control-unit">km/h</span>
+            </div>
+            <button class="btn-ctrl" id="speedUp" disabled>+</button>
+        </div>
+        <div class="presets">
+            <button class="btn-preset" id="preset7"  disabled>7 km/h</button>
+            <button class="btn-preset" id="preset12" disabled>12.5 km/h</button>
+            <button class="btn-preset" id="preset15" disabled>15 km/h</button>
+        </div>
+        <div class="ctrl-divider"></div>
+        <div class="control-row">
+            <span class="control-label">Incline</span>
+            <button class="btn-ctrl" id="inclineDown" disabled>−</button>
+            <div class="control-value-wrap">
+                <span class="control-value" id="targetIncline">0.0</span><span class="control-unit">%</span>
+            </div>
+            <button class="btn-ctrl" id="inclineUp" disabled>+</button>
+        </div>
+    </div>
 
-        // UI refs
-        const connectBtn      = document.getElementById('connectBtn');
-        const statusDiv       = document.getElementById('status');
-        const metricsCard     = document.getElementById('metricsCard');
-        const coachingCard    = document.getElementById('coachingCard');
-        const controlsCard    = document.getElementById('controlsCard');
-        const debugDiv        = document.getElementById('debug');
+    <!-- Live Metrics -->
+    <div class="card hidden" id="metricsCard">
+        <div class="card-title">Live Metrics</div>
+        <div class="metrics-grid">
+            <div class="metric">
+                <div class="metric-label">Pace</div>
+                <div class="metric-value"><span id="pace">--:--</span><span class="metric-unit">/km</span></div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Speed</div>
+                <div class="metric-value"><span id="speed">0.0</span><span class="metric-unit">km/h</span></div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Distance</div>
+                <div class="metric-value"><span id="distance">0.00</span><span class="metric-unit">km</span></div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Time</div>
+                <div class="metric-value"><span id="time">00:00</span></div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Incline</div>
+                <div class="metric-value"><span id="incline">0.0</span><span class="metric-unit">%</span></div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Calories</div>
+                <div class="metric-value"><span id="calories">0</span><span class="metric-unit">kcal</span></div>
+            </div>
+        </div>
 
-        const paceEl     = document.getElementById('pace');
-        const speedEl    = document.getElementById('speed');
-        const distanceEl = document.getElementById('distance');
-        const timeEl     = document.getElementById('time');
-        const inclineEl  = document.getElementById('incline');
-        const caloriesEl = document.getElementById('calories');
-        const coachingMessageEl = document.getElementById('coachingMessage');
-        const targetSpeedEl   = document.getElementById('targetSpeed');
-        const targetInclineEl = document.getElementById('targetIncline');
+        <!-- Goal progress bars (shown when goals are active) -->
+        <div class="goal-progress" id="distanceProgress">
+            <div class="progress-label">
+                <span>Distance Progress</span>
+                <span id="distanceProgressText">0 / 0 km</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" id="distanceProgressFill"></div></div>
+        </div>
+        <div class="goal-progress" id="timeProgress">
+            <div class="progress-label">
+                <span>Time Progress</span>
+                <span id="timeProgressText">0 / 0 min</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" id="timeProgressFill"></div></div>
+        </div>
+    </div>
 
-        const speedUpBtn   = document.getElementById('speedUp');
-        const speedDownBtn = document.getElementById('speedDown');
-        const inclineUpBtn   = document.getElementById('inclineUp');
-        const inclineDownBtn = document.getElementById('inclineDown');
-        const preset7Btn  = document.getElementById('preset7');
-        const preset12Btn = document.getElementById('preset12');
-        const preset15Btn = document.getElementById('preset15');
+    <!-- Workout History -->
+    <div class="card history-card" id="historyCard">
+        <div class="card-title">Recent Runs</div>
+        <div id="historyList"></div>
+    </div>
 
-        if (!navigator.bluetooth) {
-            statusDiv.textContent = 'Web Bluetooth not supported — use Chrome on Android';
-            statusDiv.className = 'status disconnected';
-            connectBtn.disabled = true;
-        }
+    <!-- Debug -->
+    <div class="card">
+        <details>
+            <summary class="debug-summary">Debug Info</summary>
+            <div id="debug" class="debug"></div>
+        </details>
+    </div>
 
-        connectBtn.addEventListener('click', async () => {
-            if (device && device.gatt.connected) {
-                disconnect();
-            } else {
-                try {
-                    await connectToTreadmill();
-                } catch (error) {
-                    log(`Connection error: ${error.message}`);
-                    updateStatus('disconnected', `Error: ${error.message}`);
-                }
+</div>
+
+<script>
+    // ── Constants ──────────────────────────────────────────────────────────────
+    const FTMS_SERVICE_UUID   = 0x1826;
+    const TREADMILL_DATA_UUID = 0x2ACD;
+    const CONTROL_POINT_UUID  = 0x2AD9;
+
+    const SPEED_STEP    = 0.5;
+    const INCLINE_STEP  = 0.5;
+    const SPEED_MIN     = 0;
+    const SPEED_MAX     = 25;
+    const INCLINE_MIN   = 0;
+    const INCLINE_MAX   = 15;
+    const COACHING_INTERVAL  = 15000; // ms
+    const MAX_RECONNECT_TRIES = 5;
+    const HISTORY_MAX         = 10;
+
+    // ── State ──────────────────────────────────────────────────────────────────
+    let device                      = null;
+    let treadmillDataCharacteristic = null;
+    let controlPointCharacteristic  = null;
+    let startTime                   = null;
+    let lastCoachingTime            = 0;
+    let targetSpeed                 = 0;
+    let targetIncline               = 0;
+    let manualDisconnect            = false;
+    let reconnectAttempts           = 0;
+    let coachingIntervalId          = null;
+    let nextCoachCountdown          = COACHING_INTERVAL / 1000;
+    let goalDistance                = null; // km, or null
+    let goalTime                    = null; // minutes, or null
+    let goalConfirmed               = false;
+
+    // Session tracking for history
+    let sessionMaxSpeed   = 0;
+    let sessionSpeedSum   = 0;
+    let sessionSpeedCount = 0;
+    let lastData          = { speed: 0, incline: 0, distance: 0, calories: 0, time: 0 };
+
+    // ── UI refs ────────────────────────────────────────────────────────────────
+    const connectBtn       = document.getElementById('connectBtn');
+    const statusDiv        = document.getElementById('status');
+    const metricsCard      = document.getElementById('metricsCard');
+    const coachingCard     = document.getElementById('coachingCard');
+    const controlsCard     = document.getElementById('controlsCard');
+    const goalCard         = document.getElementById('goalCard');
+    const historyCard      = document.getElementById('historyCard');
+    const debugDiv         = document.getElementById('debug');
+
+    const paceEl           = document.getElementById('pace');
+    const speedEl          = document.getElementById('speed');
+    const distanceEl       = document.getElementById('distance');
+    const timeEl           = document.getElementById('time');
+    const inclineEl        = document.getElementById('incline');
+    const caloriesEl       = document.getElementById('calories');
+    const coachingMessageEl = document.getElementById('coachingMessage');
+    const coachTimerEl     = document.getElementById('coachTimer');
+    const targetSpeedEl    = document.getElementById('targetSpeed');
+    const targetInclineEl  = document.getElementById('targetIncline');
+
+    const speedUpBtn    = document.getElementById('speedUp');
+    const speedDownBtn  = document.getElementById('speedDown');
+    const inclineUpBtn  = document.getElementById('inclineUp');
+    const inclineDownBtn = document.getElementById('inclineDown');
+    const preset7Btn    = document.getElementById('preset7');
+    const preset12Btn   = document.getElementById('preset12');
+    const preset15Btn   = document.getElementById('preset15');
+
+    const goalDistanceInput = document.getElementById('goalDistanceInput');
+    const goalTimeInput     = document.getElementById('goalTimeInput');
+    const setGoalBtn        = document.getElementById('setGoalBtn');
+    const goalSummary       = document.getElementById('goalSummary');
+    const goalSummaryText   = document.getElementById('goalSummaryText');
+    const editGoalBtn       = document.getElementById('editGoalBtn');
+    const goalInputSection  = document.getElementById('goalInputSection');
+
+    const distanceProgress     = document.getElementById('distanceProgress');
+    const timeProgress         = document.getElementById('timeProgress');
+    const distanceProgressText = document.getElementById('distanceProgressText');
+    const timeProgressText     = document.getElementById('timeProgressText');
+    const distanceProgressFill = document.getElementById('distanceProgressFill');
+    const timeProgressFill     = document.getElementById('timeProgressFill');
+
+    // ── Init ───────────────────────────────────────────────────────────────────
+    if (!navigator.bluetooth) {
+        statusDiv.textContent = 'Web Bluetooth not supported — use Chrome on Android';
+        statusDiv.className = 'status disconnected';
+        connectBtn.disabled = true;
+    }
+
+    renderHistory();
+
+    // ── Event listeners ────────────────────────────────────────────────────────
+    connectBtn.addEventListener('click', async () => {
+        if (device && device.gatt.connected) {
+            manualDisconnect = true;
+            disconnect();
+        } else {
+            try {
+                manualDisconnect = false;
+                await connectToTreadmill();
+            } catch (err) {
+                log(`Connection error: ${err.message}`);
+                updateStatus('disconnected', `Error: ${err.message}`);
             }
+        }
+    });
+
+    speedUpBtn.addEventListener('click',    () => adjustSpeed(SPEED_STEP));
+    speedDownBtn.addEventListener('click',  () => adjustSpeed(-SPEED_STEP));
+    inclineUpBtn.addEventListener('click',  () => adjustIncline(INCLINE_STEP));
+    inclineDownBtn.addEventListener('click',() => adjustIncline(-INCLINE_STEP));
+    preset7Btn.addEventListener('click',    () => setTargetSpeed(7));
+    preset12Btn.addEventListener('click',   () => setTargetSpeed(12.5));
+    preset15Btn.addEventListener('click',   () => setTargetSpeed(15));
+
+    setGoalBtn.addEventListener('click', confirmGoal);
+    editGoalBtn.addEventListener('click', () => {
+        goalSummary.classList.remove('active');
+        goalInputSection.style.display = '';
+        goalConfirmed = false;
+    });
+
+    // Re-attempt connection when user switches back to this tab/app
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && device && !device.gatt.connected && !manualDisconnect) {
+            log('App foregrounded — attempting reconnect...');
+            tryReconnect();
+        }
+    });
+
+    // ── Goal logic ─────────────────────────────────────────────────────────────
+    function confirmGoal() {
+        const dVal = parseFloat(goalDistanceInput.value);
+        const tVal = parseFloat(goalTimeInput.value);
+
+        goalDistance = (!isNaN(dVal) && dVal > 0) ? dVal : null;
+        goalTime     = (!isNaN(tVal) && tVal > 0) ? tVal : null;
+        goalConfirmed = true;
+
+        // Build summary text
+        let parts = [];
+        if (goalDistance) parts.push(`${goalDistance} km`);
+        if (goalTime)     parts.push(`${goalTime} min`);
+        const summaryStr = parts.length
+            ? `🎯 Goal: ${parts.join(' · ')}`
+            : '🎯 No target set — running freely';
+
+        goalSummaryText.textContent = summaryStr;
+        goalSummary.classList.add('active');
+        goalInputSection.style.display = 'none';
+
+        // Show/hide progress bars
+        distanceProgress.classList.toggle('active', !!goalDistance);
+        timeProgress.classList.toggle('active', !!goalTime);
+
+        log(`Goal set — distance: ${goalDistance} km, time: ${goalTime} min`);
+
+        // Trigger immediate coaching update
+        provideCoaching(lastData);
+        lastCoachingTime = Date.now();
+    }
+
+    function updateGoalProgress(data) {
+        if (goalDistance) {
+            const pct = Math.min(100, (data.distance / goalDistance) * 100);
+            distanceProgressFill.style.width = pct + '%';
+            distanceProgressText.textContent =
+                `${data.distance.toFixed(2)} / ${goalDistance} km`;
+        }
+        if (goalTime) {
+            const elapsedMin = data.time / 60;
+            const pct = Math.min(100, (elapsedMin / goalTime) * 100);
+            timeProgressFill.style.width = pct + '%';
+            timeProgressText.textContent =
+                `${elapsedMin.toFixed(1)} / ${goalTime} min`;
+        }
+    }
+
+    // ── Connection ─────────────────────────────────────────────────────────────
+    async function connectToTreadmill() {
+        updateStatus('connecting', 'Searching...');
+        log('Requesting BLE device...');
+
+        device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: [FTMS_SERVICE_UUID] }],
+            optionalServices: [FTMS_SERVICE_UUID]
         });
 
-        speedUpBtn.addEventListener('click',   () => adjustSpeed(SPEED_STEP));
-        speedDownBtn.addEventListener('click', () => adjustSpeed(-SPEED_STEP));
-        inclineUpBtn.addEventListener('click',   () => adjustIncline(INCLINE_STEP));
-        inclineDownBtn.addEventListener('click', () => adjustIncline(-INCLINE_STEP));
-        preset7Btn.addEventListener('click',  () => setTargetSpeed(7));
-        preset12Btn.addEventListener('click', () => setTargetSpeed(12.5));
-        preset15Btn.addEventListener('click', () => setTargetSpeed(15));
+        log(`Device: ${device.name}`);
+        updateStatus('connecting', `Connecting to ${device.name}…`);
 
-        function adjustSpeed(delta) {
-            const v = parseFloat((targetSpeed + delta).toFixed(1));
-            setTargetSpeed(Math.max(SPEED_MIN, Math.min(SPEED_MAX, v)));
-        }
+        await establishGattConnection();
 
-        function adjustIncline(delta) {
-            const v = parseFloat((targetIncline + delta).toFixed(1));
-            setTargetIncline(Math.max(INCLINE_MIN, Math.min(INCLINE_MAX, v)));
-        }
+        device.addEventListener('gattserverdisconnected', handleDisconnection);
 
-        async function setTargetSpeed(speed) {
-            targetSpeed = speed;
-            targetSpeedEl.textContent = speed.toFixed(1);
-            await sendSpeedCommand(speed);
-        }
+        updateStatus('connected', `Connected: ${device.name}`);
+        onConnected();
+    }
 
-        async function setTargetIncline(incline) {
-            targetIncline = incline;
-            targetInclineEl.textContent = incline.toFixed(1);
-            await sendInclineCommand(incline);
-        }
+    async function establishGattConnection() {
+        const server  = await device.gatt.connect();
+        const service = await server.getPrimaryService(FTMS_SERVICE_UUID);
+        log('Got Fitness Machine Service');
 
-        async function sendSpeedCommand(speedKmh) {
-            if (!controlPointCharacteristic) return;
-            try {
-                const buf  = new ArrayBuffer(3);
-                const view = new DataView(buf);
-                view.setUint8(0, 0x02);                            // Set Target Speed
-                view.setUint16(1, Math.round(speedKmh * 100), true); // 0.01 km/h units
-                await controlPointCharacteristic.writeValue(buf);
-                log(`Speed → ${speedKmh} km/h`);
-            } catch (e) { log(`Speed write error: ${e.message}`); }
-        }
+        treadmillDataCharacteristic = await service.getCharacteristic(TREADMILL_DATA_UUID);
+        await treadmillDataCharacteristic.startNotifications();
+        treadmillDataCharacteristic.addEventListener('characteristicvaluechanged', handleTreadmillData);
+        log('Treadmill data notifications started');
 
-        async function sendInclineCommand(inclinePct) {
-            if (!controlPointCharacteristic) return;
-            try {
-                const buf  = new ArrayBuffer(3);
-                const view = new DataView(buf);
-                view.setUint8(0, 0x03);                             // Set Target Inclination
-                view.setInt16(1, Math.round(inclinePct * 10), true); // 0.1% units
-                await controlPointCharacteristic.writeValue(buf);
-                log(`Incline → ${inclinePct}%`);
-            } catch (e) { log(`Incline write error: ${e.message}`); }
-        }
-
-        async function connectToTreadmill() {
-            updateStatus('connecting', 'Searching...');
-            log('Requesting BLE device...');
-
-            device = await navigator.bluetooth.requestDevice({
-                filters: [{ services: [FTMS_SERVICE_UUID] }],
-                optionalServices: [FTMS_SERVICE_UUID]
-            });
-
-            log(`Device: ${device.name}`);
-            updateStatus('connecting', `Connecting to ${device.name}...`);
-
-            const server  = await device.gatt.connect();
-            const service = await server.getPrimaryService(FTMS_SERVICE_UUID);
-            log('Got Fitness Machine Service');
-
-            // Treadmill data notifications
-            treadmillDataCharacteristic = await service.getCharacteristic(TREADMILL_DATA_UUID);
-            await treadmillDataCharacteristic.startNotifications();
-            treadmillDataCharacteristic.addEventListener('characteristicvaluechanged', handleTreadmillData);
-            log('Treadmill data notifications started');
-
-            // Control point (write speed / incline)
-            try {
-                controlPointCharacteristic = await service.getCharacteristic(CONTROL_POINT_UUID);
-                const reqBuf = new ArrayBuffer(1);
-                new DataView(reqBuf).setUint8(0, 0x00); // Request Control
-                await controlPointCharacteristic.writeValue(reqBuf);
-                log('Control point acquired');
-                controlsCard.classList.add('active');
-                enableControls(true);
-            } catch (e) {
-                log(`Control point unavailable: ${e.message}`);
-                controlPointCharacteristic = null;
-            }
-
-            device.addEventListener('gattserverdisconnected', handleDisconnection);
-
-            updateStatus('connected', `Connected: ${device.name}`);
-            metricsCard.classList.remove('hidden');
-            coachingCard.classList.add('active');
-            connectBtn.textContent = 'Disconnect';
-            startTime = Date.now();
-        }
-
-        function enableControls(on) {
-            [speedUpBtn, speedDownBtn, inclineUpBtn, inclineDownBtn,
-             preset7Btn, preset12Btn, preset15Btn].forEach(b => b.disabled = !on);
-        }
-
-        function handleTreadmillData(event) {
-            const data = parseTreadmillData(event.target.value);
-            updateMetrics(data);
-            const now = Date.now();
-            if (now - lastCoachingTime > COACHING_INTERVAL) {
-                provideCoaching(data);
-                lastCoachingTime = now;
-            }
-        }
-
-        function parseTreadmillData(dataView) {
-            const flags = dataView.getUint16(0, true);
-            let offset  = 2;
-            const data  = { speed: 0, incline: 0, distance: 0, calories: 0, time: 0, heartRate: 0 };
-
-            try {
-                // Instantaneous Speed — always present, uint16, 0.01 km/h
-                data.speed = dataView.getUint16(offset, true) * 0.01;
-                offset += 2;
-
-                if (flags & 0x02) offset += 2; // Average Speed
-
-                if (flags & 0x04) { // Total Distance, uint24, 1m units
-                    data.distance = (dataView.getUint8(offset) +
-                                    (dataView.getUint8(offset + 1) << 8) +
-                                    (dataView.getUint8(offset + 2) << 16)) / 1000;
-                    offset += 3;
-                }
-
-                if (flags & 0x08) { // Inclination, int16, 0.1%
-                    data.incline = dataView.getInt16(offset, true) * 0.1;
-                    offset += 4; // inclination + ramp angle
-                }
-
-                if (flags & 0x10) offset += 2; // Elevation Gain
-                if (flags & 0x20) offset += 1; // Instantaneous Pace
-                if (flags & 0x40) offset += 1; // Average Pace
-
-                if (flags & 0x80) { // Expended Energy
-                    data.calories = dataView.getUint16(offset, true);
-                    offset += 5; // total + per hour + per minute
-                }
-
-                if (flags & 0x100) { data.heartRate = dataView.getUint8(offset); offset += 1; }
-                if (flags & 0x200) offset += 1; // Metabolic Equivalent
-                if (flags & 0x400) { data.time = dataView.getUint16(offset, true); offset += 2; }
-
-            } catch (e) { log(`Parse error: ${e.message}`); }
-
-            log(`Parsed: ${JSON.stringify(data)}`);
-            return data;
-        }
-
-        function updateMetrics(data) {
-            speedEl.textContent = data.speed.toFixed(1);
-
-            if (data.speed > 0) {
-                const pace = 60 / data.speed;
-                const m = Math.floor(pace);
-                const s = Math.round((pace - m) * 60);
-                paceEl.textContent = `${m}:${s.toString().padStart(2, '0')}`;
-            } else {
-                paceEl.textContent = '--:--';
-            }
-
-            distanceEl.textContent = data.distance.toFixed(2);
-
-            if (data.time > 0) {
-                const m = Math.floor(data.time / 60);
-                const s = data.time % 60;
-                timeEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-            }
-
-            inclineEl.textContent  = data.incline.toFixed(1);
-            caloriesEl.textContent = data.calories;
-        }
-
-        function provideCoaching(data) {
-            let message = '', emoji = '🎯';
-
-            if (data.speed === 0) {
-                emoji = '⏸️';
-                message = "Take your time to warm up. Start when you're ready!";
-            } else if (data.speed < 5) {
-                emoji = '🚶';
-                message = `Nice warm-up at ${data.speed.toFixed(1)} km/h. Getting those muscles ready.`;
-            } else if (data.speed < 8) {
-                emoji = '🏃';
-                message = `Solid easy pace at ${data.speed.toFixed(1)} km/h. Building your aerobic base.`;
-            } else if (data.speed < 11) {
-                emoji = '💪';
-                message = `Great tempo at ${data.speed.toFixed(1)} km/h! Keep breathing steady.`;
-            } else {
-                emoji = '🔥';
-                message = `Speed work! ${data.speed.toFixed(1)} km/h is strong — mind your form!`;
-            }
-
-            if (data.incline > 2) {
-                message += ` With ${data.incline.toFixed(1)}% incline, you're building serious strength!`;
-            }
-            if (data.distance > 0 && data.distance % 1 < 0.1) {
-                message += ` ${data.distance.toFixed(1)} km covered — keep it up!`;
-            }
-
-            coachingMessageEl.innerHTML = `<strong>${emoji} Coach Says:</strong>${message}`;
-        }
-
-        function disconnect() {
-            if (device && device.gatt.connected) device.gatt.disconnect();
-        }
-
-        function handleDisconnection() {
-            log('Device disconnected');
-            updateStatus('disconnected', 'Disconnected');
-            metricsCard.classList.add('hidden');
-            coachingCard.classList.remove('active');
-            controlsCard.classList.remove('active');
-            connectBtn.textContent = 'Connect';
-            enableControls(false);
+        try {
+            controlPointCharacteristic = await service.getCharacteristic(CONTROL_POINT_UUID);
+            const reqBuf = new ArrayBuffer(1);
+            new DataView(reqBuf).setUint8(0, 0x00);
+            await controlPointCharacteristic.writeValue(reqBuf);
+            log('Control point acquired');
+            controlsCard.classList.add('active');
+            enableControls(true);
+        } catch (e) {
+            log(`Control point unavailable: ${e.message}`);
             controlPointCharacteristic = null;
         }
+    }
 
-        function updateStatus(state, message) {
-            statusDiv.className = `status ${state}`;
-            statusDiv.textContent = message;
+    function onConnected() {
+        metricsCard.classList.remove('hidden');
+        coachingCard.classList.add('active');
+        goalCard.classList.add('active');
+        connectBtn.textContent = 'Disconnect';
+        startTime = Date.now();
+        reconnectAttempts = 0;
+
+        // Reset session stats
+        sessionMaxSpeed   = 0;
+        sessionSpeedSum   = 0;
+        sessionSpeedCount = 0;
+
+        startCoachingTimer();
+    }
+
+    function disconnect() {
+        if (device && device.gatt.connected) device.gatt.disconnect();
+    }
+
+    async function handleDisconnection() {
+        log('Device disconnected');
+        stopCoachingTimer();
+
+        if (manualDisconnect) {
+            saveWorkoutIfValid();
+            resetUI();
+            return;
         }
 
-        function log(message) {
-            const ts = new Date().toLocaleTimeString();
-            debugDiv.innerHTML += `[${ts}] ${message}<br>`;
-            debugDiv.scrollTop = debugDiv.scrollHeight;
-            console.log(message);
+        // Involuntary disconnect — try to reconnect
+        await tryReconnect();
+    }
+
+    async function tryReconnect() {
+        if (reconnectAttempts >= MAX_RECONNECT_TRIES) {
+            log('Max reconnect attempts reached — giving up');
+            saveWorkoutIfValid();
+            resetUI();
+            updateStatus('disconnected', 'Connection lost');
+            return;
         }
-    </script>
+
+        reconnectAttempts++;
+        const delay = reconnectAttempts * 1500;
+        updateStatus('reconnecting', `Reconnecting… (${reconnectAttempts}/${MAX_RECONNECT_TRIES})`);
+        log(`Reconnect attempt ${reconnectAttempts} in ${delay}ms`);
+
+        await new Promise(r => setTimeout(r, delay));
+
+        try {
+            // Remove old listener to avoid duplicates, add again after reconnect
+            treadmillDataCharacteristic?.removeEventListener('characteristicvaluechanged', handleTreadmillData);
+
+            await establishGattConnection();
+
+            updateStatus('connected', `Connected: ${device.name}`);
+            reconnectAttempts = 0;
+            log('Reconnected successfully');
+            startCoachingTimer();
+        } catch (e) {
+            log(`Reconnect attempt ${reconnectAttempts} failed: ${e.message}`);
+            await tryReconnect();
+        }
+    }
+
+    function resetUI() {
+        metricsCard.classList.add('hidden');
+        coachingCard.classList.remove('active');
+        controlsCard.classList.remove('active');
+        goalCard.classList.remove('active');
+        connectBtn.textContent = 'Connect';
+        enableControls(false);
+        controlPointCharacteristic = null;
+        updateStatus('disconnected', 'Disconnected');
+    }
+
+    function enableControls(on) {
+        [speedUpBtn, speedDownBtn, inclineUpBtn, inclineDownBtn,
+         preset7Btn, preset12Btn, preset15Btn].forEach(b => b.disabled = !on);
+    }
+
+    // ── Speed / Incline ────────────────────────────────────────────────────────
+    function adjustSpeed(delta) {
+        const v = parseFloat((targetSpeed + delta).toFixed(1));
+        setTargetSpeed(Math.max(SPEED_MIN, Math.min(SPEED_MAX, v)));
+    }
+
+    function adjustIncline(delta) {
+        const v = parseFloat((targetIncline + delta).toFixed(1));
+        setTargetIncline(Math.max(INCLINE_MIN, Math.min(INCLINE_MAX, v)));
+    }
+
+    async function setTargetSpeed(speed) {
+        targetSpeed = speed;
+        targetSpeedEl.textContent = speed.toFixed(1);
+        await sendSpeedCommand(speed);
+    }
+
+    async function setTargetIncline(incline) {
+        targetIncline = incline;
+        targetInclineEl.textContent = incline.toFixed(1);
+        await sendInclineCommand(incline);
+    }
+
+    async function sendSpeedCommand(speedKmh) {
+        if (!controlPointCharacteristic) return;
+        try {
+            const buf  = new ArrayBuffer(3);
+            const view = new DataView(buf);
+            view.setUint8(0, 0x02);
+            view.setUint16(1, Math.round(speedKmh * 100), true);
+            await controlPointCharacteristic.writeValue(buf);
+            log(`Speed → ${speedKmh} km/h`);
+        } catch (e) { log(`Speed write error: ${e.message}`); }
+    }
+
+    async function sendInclineCommand(inclinePct) {
+        if (!controlPointCharacteristic) return;
+        try {
+            const buf  = new ArrayBuffer(3);
+            const view = new DataView(buf);
+            view.setUint8(0, 0x03);
+            view.setInt16(1, Math.round(inclinePct * 10), true);
+            await controlPointCharacteristic.writeValue(buf);
+            log(`Incline → ${inclinePct}%`);
+        } catch (e) { log(`Incline write error: ${e.message}`); }
+    }
+
+    // ── Data handling ──────────────────────────────────────────────────────────
+    function handleTreadmillData(event) {
+        const data = parseTreadmillData(event.target.value);
+        lastData = data;
+        updateMetrics(data);
+        updateGoalProgress(data);
+
+        // Track session stats
+        if (data.speed > 0) {
+            sessionSpeedSum += data.speed;
+            sessionSpeedCount++;
+            if (data.speed > sessionMaxSpeed) sessionMaxSpeed = data.speed;
+        }
+    }
+
+    function parseTreadmillData(dataView) {
+        const flags = dataView.getUint16(0, true);
+        let offset  = 2;
+        const data  = { speed: 0, incline: 0, distance: 0, calories: 0, time: 0, heartRate: 0 };
+
+        try {
+            data.speed = dataView.getUint16(offset, true) * 0.01;
+            offset += 2;
+
+            if (flags & 0x02) offset += 2;
+
+            if (flags & 0x04) {
+                data.distance = (dataView.getUint8(offset) +
+                                (dataView.getUint8(offset + 1) << 8) +
+                                (dataView.getUint8(offset + 2) << 16)) / 1000;
+                offset += 3;
+            }
+
+            if (flags & 0x08) {
+                data.incline = dataView.getInt16(offset, true) * 0.1;
+                offset += 4;
+            }
+
+            if (flags & 0x10) offset += 2;
+            if (flags & 0x20) offset += 1;
+            if (flags & 0x40) offset += 1;
+
+            if (flags & 0x80) {
+                data.calories = dataView.getUint16(offset, true);
+                offset += 5;
+            }
+
+            if (flags & 0x100) { data.heartRate = dataView.getUint8(offset); offset += 1; }
+            if (flags & 0x200) offset += 1;
+            if (flags & 0x400) { data.time = dataView.getUint16(offset, true); offset += 2; }
+
+        } catch (e) { log(`Parse error: ${e.message}`); }
+
+        log(`Parsed: spd=${data.speed.toFixed(1)} dist=${data.distance.toFixed(2)} t=${data.time}s cal=${data.calories}`);
+        return data;
+    }
+
+    function updateMetrics(data) {
+        speedEl.textContent = data.speed.toFixed(1);
+
+        if (data.speed > 0) {
+            const pace = 60 / data.speed;
+            const m = Math.floor(pace);
+            const s = Math.round((pace - m) * 60);
+            paceEl.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+        } else {
+            paceEl.textContent = '--:--';
+        }
+
+        distanceEl.textContent = data.distance.toFixed(2);
+
+        if (data.time > 0) {
+            const m = Math.floor(data.time / 60);
+            const s = data.time % 60;
+            timeEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        inclineEl.textContent  = data.incline.toFixed(1);
+        caloriesEl.textContent = data.calories;
+    }
+
+    // ── Coaching ───────────────────────────────────────────────────────────────
+    function startCoachingTimer() {
+        stopCoachingTimer();
+        nextCoachCountdown = COACHING_INTERVAL / 1000;
+        provideCoaching(lastData);
+        lastCoachingTime = Date.now();
+
+        coachingIntervalId = setInterval(() => {
+            nextCoachCountdown--;
+            if (nextCoachCountdown <= 0) {
+                provideCoaching(lastData);
+                lastCoachingTime = Date.now();
+                nextCoachCountdown = COACHING_INTERVAL / 1000;
+            } else {
+                coachTimerEl.textContent = `Next update in ${nextCoachCountdown}s`;
+            }
+        }, 1000);
+    }
+
+    function stopCoachingTimer() {
+        if (coachingIntervalId) {
+            clearInterval(coachingIntervalId);
+            coachingIntervalId = null;
+        }
+        coachTimerEl.textContent = '';
+    }
+
+    function provideCoaching(data) {
+        const { emoji, message } = buildCoachMessage(data);
+        coachingMessageEl.innerHTML = `<strong>${emoji} Coach Says:</strong>${message}`;
+        coachTimerEl.textContent = `Next update in ${COACHING_INTERVAL / 1000}s`;
+        nextCoachCountdown = COACHING_INTERVAL / 1000;
+    }
+
+    function buildCoachMessage(data) {
+        const elapsedMin = data.time / 60;
+        let emoji = '🎯';
+        let lines = [];
+
+        // ── Goal-aware opening ──────────────────────────────────────────────
+        if (goalDistance && goalTime) {
+            const distPct = Math.min(100, (data.distance / goalDistance) * 100);
+            const timePct = Math.min(100, (elapsedMin / goalTime) * 100);
+            const remaining = goalDistance - data.distance;
+            const timeLeft  = goalTime - elapsedMin;
+
+            if (distPct >= 100 && timePct >= 100) {
+                emoji = '🏆';
+                lines.push(`Amazing — you've nailed it! ${goalDistance} km in ${goalTime} min. Absolute champion.`);
+            } else if (distPct >= 100) {
+                emoji = '🏅';
+                lines.push(`Distance goal smashed! ${goalDistance} km done. Keep the legs moving — ${Math.max(0, timeLeft).toFixed(1)} min still on the clock.`);
+            } else if (timePct >= 100) {
+                emoji = '⏱️';
+                lines.push(`Time's up! You covered ${data.distance.toFixed(2)} km — ${remaining > 0 ? remaining.toFixed(2) + ' km short of your distance goal. So close!' : 'goal complete!'}`);
+            } else if (distPct > 75 || timePct > 75) {
+                emoji = '💥';
+                lines.push(`Final stretch — ${remaining.toFixed(2)} km to go! You are ${distPct.toFixed(0)}% there. Don't back off now!`);
+            } else if (distPct > 50 || timePct > 50) {
+                emoji = '💪';
+                lines.push(`Over halfway! ${data.distance.toFixed(2)} of ${goalDistance} km done. ${remaining.toFixed(2)} km remaining — you've got this.`);
+            } else if (distPct > 25 || timePct > 25) {
+                emoji = '🏃';
+                lines.push(`Good progress — ${data.distance.toFixed(2)} km covered toward your ${goalDistance} km target. Stay strong.`);
+            } else {
+                emoji = '🚀';
+                lines.push(`Great start! ${goalDistance} km goal locked in. Settle into your rhythm — ${remaining.toFixed(2)} km to go.`);
+            }
+
+        } else if (goalDistance) {
+            const remaining = goalDistance - data.distance;
+            const distPct   = Math.min(100, (data.distance / goalDistance) * 100);
+
+            if (distPct >= 100) {
+                emoji = '🏆'; lines.push(`Goal reached! ${goalDistance} km complete — outstanding effort!`);
+            } else if (distPct > 75) {
+                emoji = '💥'; lines.push(`Almost there! Only ${remaining.toFixed(2)} km left of your ${goalDistance} km goal. Dig in!`);
+            } else if (distPct > 50) {
+                emoji = '💪'; lines.push(`Past halfway! ${data.distance.toFixed(2)} / ${goalDistance} km done. Keep the same effort.`);
+            } else {
+                emoji = '🚀'; lines.push(`${goalDistance} km is the target. You're ${data.distance.toFixed(2)} km in — stay focused.`);
+            }
+
+        } else if (goalTime) {
+            const timeLeft = goalTime - elapsedMin;
+            const timePct  = Math.min(100, (elapsedMin / goalTime) * 100);
+
+            if (timePct >= 100) {
+                emoji = '🏆'; lines.push(`${goalTime} minutes done — you absolutely crushed it! Great session.`);
+            } else if (timePct > 75) {
+                emoji = '💥'; lines.push(`Last ${timeLeft.toFixed(1)} minutes — this is where champions are made. Push!`);
+            } else if (timePct > 50) {
+                emoji = '💪'; lines.push(`${elapsedMin.toFixed(1)} min in, ${timeLeft.toFixed(1)} to go. You're over halfway — keep rolling.`);
+            } else {
+                emoji = '🚀'; lines.push(`${goalTime} min session underway. ${timeLeft.toFixed(1)} min remaining — pace yourself.`);
+            }
+
+        } else {
+            // No goal — standard speed-based message
+            if (data.speed === 0) {
+                emoji = '⏸️';
+                lines.push("Ready when you are. Set a goal above or jump on and start running!");
+            } else if (data.speed < 5) {
+                emoji = '🚶';
+                lines.push(`Nice warm-up at ${data.speed.toFixed(1)} km/h. Loosen up those legs.`);
+            } else if (data.speed < 8) {
+                emoji = '🏃';
+                lines.push(`Solid easy pace at ${data.speed.toFixed(1)} km/h. Building your aerobic base — this is where the magic happens.`);
+            } else if (data.speed < 11) {
+                emoji = '💪';
+                lines.push(`Great tempo at ${data.speed.toFixed(1)} km/h! Keep that breathing steady and controlled.`);
+            } else {
+                emoji = '🔥';
+                lines.push(`Speed work at ${data.speed.toFixed(1)} km/h — that's fast! Stay tall, drive the arms.`);
+            }
+        }
+
+        // ── Incline bonus ───────────────────────────────────────────────────
+        if (data.incline >= 3) {
+            lines.push(`${data.incline.toFixed(1)}% incline is serious hill work — your glutes and calves will thank you.`);
+        } else if (data.incline >= 1) {
+            lines.push(`Running at ${data.incline.toFixed(1)}% incline — great for simulating real-road effort.`);
+        }
+
+        // ── Distance milestone ──────────────────────────────────────────────
+        if (data.distance >= 1 && data.distance % 1 < 0.05) {
+            lines.push(`${Math.round(data.distance)} km milestone — every kilometre counts!`);
+        }
+
+        return { emoji, message: lines.join(' ') };
+    }
+
+    // ── Workout history ────────────────────────────────────────────────────────
+    function saveWorkoutIfValid() {
+        if (!lastData || lastData.distance < 0.05 || lastData.time < 30) return;
+
+        const avgSpeed = sessionSpeedCount > 0
+            ? (sessionSpeedSum / sessionSpeedCount)
+            : lastData.speed;
+
+        const workout = {
+            date:        new Date().toISOString(),
+            duration:    lastData.time,
+            distance:    lastData.distance,
+            calories:    lastData.calories,
+            avgSpeed:    parseFloat(avgSpeed.toFixed(2)),
+            maxSpeed:    parseFloat(sessionMaxSpeed.toFixed(2)),
+            incline:     parseFloat(lastData.incline.toFixed(1)),
+            goalDistance: goalDistance,
+            goalTime:    goalTime,
+            goalAchieved: checkGoalAchieved(lastData)
+        };
+
+        const history = getHistory();
+        history.unshift(workout);
+        if (history.length > HISTORY_MAX) history.length = HISTORY_MAX;
+        localStorage.setItem('runHistory', JSON.stringify(history));
+        log(`Workout saved: ${workout.distance} km, ${formatDuration(workout.duration)}`);
+        renderHistory();
+    }
+
+    function checkGoalAchieved(data) {
+        if (!goalDistance && !goalTime) return null;
+        const distOk = !goalDistance || data.distance >= goalDistance * 0.95;
+        const timeOk = !goalTime     || (data.time / 60) >= goalTime * 0.95;
+        return distOk && timeOk ? 'achieved' : 'partial';
+    }
+
+    function getHistory() {
+        try { return JSON.parse(localStorage.getItem('runHistory') || '[]'); }
+        catch { return []; }
+    }
+
+    function formatDuration(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function formatDate(iso) {
+        try {
+            const d = new Date(iso);
+            return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+                 + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        } catch { return iso; }
+    }
+
+    function renderHistory() {
+        const history = getHistory();
+        const list    = document.getElementById('historyList');
+
+        if (history.length === 0) {
+            list.innerHTML = '<div class="history-empty">No runs saved yet — complete a session to see your history.</div>';
+            historyCard.classList.add('active');
+            return;
+        }
+
+        historyCard.classList.add('active');
+        list.innerHTML = history.map(w => {
+            const badgeHtml = w.goalAchieved
+                ? `<span class="history-goal-badge ${w.goalAchieved}">${w.goalAchieved === 'achieved' ? '✓ Goal achieved' : '~ Partial goal'}</span>`
+                : '';
+            const goalLine = (w.goalDistance || w.goalTime)
+                ? `<div style="font-size:0.7em;color:#475569;margin-top:4px;">
+                     Goal: ${[w.goalDistance ? w.goalDistance + ' km' : '', w.goalTime ? w.goalTime + ' min' : ''].filter(Boolean).join(' · ')}
+                   </div>`
+                : '';
+            return `
+            <div class="history-item">
+                <div class="history-date">${formatDate(w.date)}</div>
+                <div class="history-metrics">
+                    <div class="history-stat">
+                        <div class="history-stat-val">${w.distance.toFixed(2)}</div>
+                        <div class="history-stat-lbl">km</div>
+                    </div>
+                    <div class="history-stat">
+                        <div class="history-stat-val">${formatDuration(w.duration)}</div>
+                        <div class="history-stat-lbl">time</div>
+                    </div>
+                    <div class="history-stat">
+                        <div class="history-stat-val">${w.calories}</div>
+                        <div class="history-stat-lbl">kcal</div>
+                    </div>
+                    <div class="history-stat">
+                        <div class="history-stat-val">${w.avgSpeed.toFixed(1)}</div>
+                        <div class="history-stat-lbl">avg km/h</div>
+                    </div>
+                    <div class="history-stat">
+                        <div class="history-stat-val">${w.maxSpeed.toFixed(1)}</div>
+                        <div class="history-stat-lbl">max km/h</div>
+                    </div>
+                    <div class="history-stat">
+                        <div class="history-stat-val">${w.incline.toFixed(1)}%</div>
+                        <div class="history-stat-lbl">incline</div>
+                    </div>
+                </div>
+                ${goalLine}
+                ${badgeHtml}
+            </div>`;
+        }).join('');
+    }
+
+    // ── Utilities ──────────────────────────────────────────────────────────────
+    function updateStatus(state, message) {
+        statusDiv.className = `status ${state}`;
+        statusDiv.textContent = message;
+    }
+
+    function log(message) {
+        const ts = new Date().toLocaleTimeString();
+        debugDiv.innerHTML += `[${ts}] ${message}<br>`;
+        debugDiv.scrollTop = debugDiv.scrollHeight;
+        console.log(message);
+    }
+</script>
 </body>
 </html>
