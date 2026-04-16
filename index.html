@@ -2,255 +2,338 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Running Coach - Treadmill BLE</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Running Coach</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #08081a;
             min-height: 100vh;
-            padding: 20px;
-            color: #333;
+            padding: 10px 12px;
+            color: #e2e8f0;
         }
 
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-        }
+        .container { max-width: 480px; margin: 0 auto; }
 
         .header {
             text-align: center;
-            color: white;
-            margin-bottom: 30px;
+            padding: 6px 0 10px;
         }
-
         .header h1 {
-            font-size: 2em;
-            margin-bottom: 10px;
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 0.5px;
         }
-
         .header p {
-            opacity: 0.9;
-            font-size: 1.1em;
+            font-size: 0.75em;
+            color: #4f46e5;
+            margin-top: 2px;
         }
 
         .card {
-            background: white;
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            background: #12121e;
+            border-radius: 14px;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            border: 1px solid #1e1e38;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
         }
 
-        .connect-section {
-            text-align: center;
+        .card-title {
+            font-size: 0.75em;
+            font-weight: 700;
+            color: #00e5ff;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 9px;
         }
 
-        .btn {
-            background: #667eea;
+        /* Connect section */
+        .connect-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn-connect {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
             color: white;
             border: none;
-            padding: 16px 32px;
-            font-size: 1.1em;
-            font-weight: 600;
-            border-radius: 12px;
+            padding: 10px 18px;
+            font-size: 0.9em;
+            font-weight: 700;
+            border-radius: 10px;
             cursor: pointer;
-            transition: all 0.3s ease;
-            width: 100%;
-            max-width: 300px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            letter-spacing: 0.3px;
         }
-
-        .btn:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-        }
+        .btn-connect:hover { opacity: 0.85; transform: translateY(-1px); box-shadow: 0 0 18px rgba(124, 58, 237, 0.5); }
+        .btn-connect:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
 
         .status {
-            margin-top: 16px;
-            padding: 12px;
+            padding: 8px 10px;
             border-radius: 8px;
+            font-size: 0.8em;
+            font-weight: 600;
+            flex: 1;
+            text-align: center;
+        }
+        .status.disconnected { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+        .status.connecting   { background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+        .status.connected    { background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.25); }
+
+        /* Coach message */
+        .coaching-message {
+            background: linear-gradient(135deg, #1a0a30 0%, #080e28 100%);
+            border: 1px solid #3b1f6e;
+            color: #ddd6fe;
+            padding: 12px 14px;
+            border-radius: 10px;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+        .coaching-message strong {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.95em;
+            color: #c084fc;
+            letter-spacing: 0.3px;
+        }
+
+        /* Controls */
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .control-label {
+            font-size: 0.78em;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            width: 52px;
+            flex-shrink: 0;
+        }
+        .control-value-wrap {
+            flex: 1;
+            text-align: center;
+        }
+        .control-value {
+            font-size: 1.5em;
+            font-weight: 800;
+            color: #00e5ff;
+            line-height: 1;
+        }
+        .control-unit {
+            font-size: 0.5em;
+            color: #475569;
+            margin-left: 3px;
             font-weight: 500;
         }
 
-        .status.disconnected {
-            background: #fee;
-            color: #c33;
+        .btn-ctrl {
+            background: #1a1a30;
+            color: #00e5ff;
+            border: 1px solid #2a2a48;
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            font-size: 1.5em;
+            font-weight: 300;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            line-height: 1;
         }
+        .btn-ctrl:hover:not(:disabled) { background: #252540; box-shadow: 0 0 12px rgba(0, 229, 255, 0.3); }
+        .btn-ctrl:active:not(:disabled) { transform: scale(0.9); }
+        .btn-ctrl:disabled { opacity: 0.25; cursor: not-allowed; }
 
-        .status.connecting {
-            background: #ffeaa7;
-            color: #d63031;
+        .presets {
+            display: flex;
+            gap: 6px;
+            margin-top: 2px;
+            margin-bottom: 10px;
+            padding-left: 60px;
         }
-
-        .status.connected {
-            background: #d4edda;
-            color: #155724;
+        .btn-preset {
+            flex: 1;
+            background: #1a1a30;
+            color: #a78bfa;
+            border: 1px solid #2a2a48;
+            padding: 6px 4px;
+            border-radius: 8px;
+            font-size: 0.78em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-align: center;
         }
+        .btn-preset:hover:not(:disabled) { background: #252540; color: #c4b5fd; box-shadow: 0 0 10px rgba(167,139,250,0.3); }
+        .btn-preset:disabled { opacity: 0.25; cursor: not-allowed; }
 
+        .ctrl-divider { height: 1px; background: #1e1e38; margin: 8px 0; }
+
+        /* Metrics */
         .metrics-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-            margin-top: 20px;
+            gap: 7px;
         }
 
         .metric {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 12px;
+            background: #0a0a18;
+            padding: 10px 8px;
+            border-radius: 10px;
             text-align: center;
-            border: 2px solid #e9ecef;
+            border: 1px solid #1e1e38;
         }
-
         .metric-label {
-            font-size: 0.9em;
-            color: #6c757d;
-            margin-bottom: 8px;
+            font-size: 0.68em;
+            color: #475569;
+            margin-bottom: 3px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+        .metric-value {
+            font-size: 1.55em;
+            font-weight: 800;
+            color: #00e5ff;
+            line-height: 1.1;
+        }
+        .metric-unit {
+            font-size: 0.5em;
+            color: #334155;
+            margin-left: 2px;
             font-weight: 500;
         }
 
-        .metric-value {
-            font-size: 2em;
-            font-weight: bold;
-            color: #667eea;
+        /* Debug */
+        .debug-summary {
+            cursor: pointer;
+            font-size: 0.8em;
+            font-weight: 600;
+            color: #312e81;
+            user-select: none;
         }
-
-        .metric-unit {
-            font-size: 0.6em;
-            color: #6c757d;
-            margin-left: 4px;
-        }
-
-        .coaching-card {
-            display: none;
-        }
-
-        .coaching-card.active {
-            display: block;
-        }
-
-        .coaching-message {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 12px;
-            font-size: 1.1em;
-            line-height: 1.6;
-            margin-top: 16px;
-        }
-
-        .coaching-message strong {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 1.2em;
-        }
-
         .debug {
             font-family: 'Courier New', monospace;
-            font-size: 0.85em;
-            color: #666;
-            margin-top: 12px;
-            padding: 12px;
-            background: #f8f9fa;
+            font-size: 0.72em;
+            color: #334155;
+            margin-top: 8px;
+            padding: 10px;
+            background: #080812;
             border-radius: 8px;
-            max-height: 200px;
+            max-height: 130px;
             overflow-y: auto;
         }
 
-        .hidden {
-            display: none;
-        }
-
-        @media (max-width: 600px) {
-            .metrics-grid {
-                grid-template-columns: 1fr;
-            }
-        }
+        .hidden { display: none; }
+        .coach-card  { display: none; }
+        .coach-card.active  { display: block; }
+        .ctrl-card { display: none; }
+        .ctrl-card.active { display: block; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🏃‍♂️ Running Coach</h1>
+            <h1>🏃 Running Coach</h1>
             <p>Real-time treadmill coaching via BLE</p>
         </div>
 
-        <div class="card connect-section">
-            <button id="connectBtn" class="btn">Connect to Treadmill</button>
-            <div id="status" class="status disconnected">Not Connected</div>
-        </div>
-
-        <div class="card hidden" id="metricsCard">
-            <h2 style="margin-bottom: 16px; color: #667eea;">Live Metrics</h2>
-            <div class="metrics-grid">
-                <div class="metric">
-                    <div class="metric-label">Pace</div>
-                    <div class="metric-value">
-                        <span id="pace">--:--</span>
-                        <span class="metric-unit">/km</span>
-                    </div>
-                </div>
-                <div class="metric">
-                    <div class="metric-label">Speed</div>
-                    <div class="metric-value">
-                        <span id="speed">0.0</span>
-                        <span class="metric-unit">km/h</span>
-                    </div>
-                </div>
-                <div class="metric">
-                    <div class="metric-label">Distance</div>
-                    <div class="metric-value">
-                        <span id="distance">0.00</span>
-                        <span class="metric-unit">km</span>
-                    </div>
-                </div>
-                <div class="metric">
-                    <div class="metric-label">Time</div>
-                    <div class="metric-value">
-                        <span id="time">00:00</span>
-                    </div>
-                </div>
-                <div class="metric">
-                    <div class="metric-label">Incline</div>
-                    <div class="metric-value">
-                        <span id="incline">0.0</span>
-                        <span class="metric-unit">%</span>
-                    </div>
-                </div>
-                <div class="metric">
-                    <div class="metric-label">Calories</div>
-                    <div class="metric-value">
-                        <span id="calories">0</span>
-                        <span class="metric-unit">kcal</span>
-                    </div>
-                </div>
+        <!-- Connect -->
+        <div class="card">
+            <div class="connect-row">
+                <button id="connectBtn" class="btn-connect">Connect</button>
+                <div id="status" class="status disconnected">Not Connected</div>
             </div>
         </div>
 
-        <div class="card coaching-card" id="coachingCard">
-            <h2 style="margin-bottom: 16px; color: #667eea;">Coach Feedback</h2>
+        <!-- Coach Feedback -->
+        <div class="card coach-card" id="coachingCard">
+            <div class="card-title">Coach</div>
             <div class="coaching-message" id="coachingMessage">
                 <strong>🎯 Ready to go!</strong>
                 Start your run and I'll provide real-time coaching feedback.
             </div>
         </div>
 
+        <!-- Speed & Incline Controls -->
+        <div class="card ctrl-card" id="controlsCard">
+            <div class="card-title">Controls</div>
+
+            <div class="control-row">
+                <span class="control-label">Speed</span>
+                <button class="btn-ctrl" id="speedDown" disabled>−</button>
+                <div class="control-value-wrap">
+                    <span class="control-value" id="targetSpeed">0.0</span><span class="control-unit">km/h</span>
+                </div>
+                <button class="btn-ctrl" id="speedUp" disabled>+</button>
+            </div>
+            <div class="presets">
+                <button class="btn-preset" id="preset7"  disabled>7 km/h</button>
+                <button class="btn-preset" id="preset12" disabled>12.5 km/h</button>
+                <button class="btn-preset" id="preset15" disabled>15 km/h</button>
+            </div>
+
+            <div class="ctrl-divider"></div>
+
+            <div class="control-row">
+                <span class="control-label">Incline</span>
+                <button class="btn-ctrl" id="inclineDown" disabled>−</button>
+                <div class="control-value-wrap">
+                    <span class="control-value" id="targetIncline">0.0</span><span class="control-unit">%</span>
+                </div>
+                <button class="btn-ctrl" id="inclineUp" disabled>+</button>
+            </div>
+        </div>
+
+        <!-- Live Metrics -->
+        <div class="card hidden" id="metricsCard">
+            <div class="card-title">Live Metrics</div>
+            <div class="metrics-grid">
+                <div class="metric">
+                    <div class="metric-label">Pace</div>
+                    <div class="metric-value"><span id="pace">--:--</span><span class="metric-unit">/km</span></div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Speed</div>
+                    <div class="metric-value"><span id="speed">0.0</span><span class="metric-unit">km/h</span></div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Distance</div>
+                    <div class="metric-value"><span id="distance">0.00</span><span class="metric-unit">km</span></div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Time</div>
+                    <div class="metric-value"><span id="time">00:00</span></div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Incline</div>
+                    <div class="metric-value"><span id="incline">0.0</span><span class="metric-unit">%</span></div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Calories</div>
+                    <div class="metric-value"><span id="calories">0</span><span class="metric-unit">kcal</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug -->
         <div class="card">
             <details>
-                <summary style="cursor: pointer; font-weight: 600; color: #667eea;">Debug Info</summary>
+                <summary class="debug-summary">Debug Info</summary>
                 <div id="debug" class="debug"></div>
             </details>
         </div>
@@ -258,102 +341,178 @@
 
     <script>
         // FTMS (Fitness Machine Service) UUIDs
-        const FTMS_SERVICE_UUID = 0x1826;
-        const TREADMILL_DATA_UUID = 0x2ACD;
+        const FTMS_SERVICE_UUID      = 0x1826;
+        const TREADMILL_DATA_UUID    = 0x2ACD;
+        const CONTROL_POINT_UUID     = 0x2AD9;
+
+        const SPEED_STEP   = 0.5;
+        const INCLINE_STEP = 0.5;
+        const SPEED_MIN    = 0;
+        const SPEED_MAX    = 25;
+        const INCLINE_MIN  = 0;
+        const INCLINE_MAX  = 15;
+        const COACHING_INTERVAL = 15000;
 
         let device = null;
         let treadmillDataCharacteristic = null;
-        let startTime = null;
+        let controlPointCharacteristic  = null;
+        let startTime        = null;
         let lastCoachingTime = 0;
-        const COACHING_INTERVAL = 15000; // 15 seconds
+        let targetSpeed   = 0;
+        let targetIncline = 0;
 
-        // UI Elements
-        const connectBtn = document.getElementById('connectBtn');
-        const statusDiv = document.getElementById('status');
-        const metricsCard = document.getElementById('metricsCard');
-        const coachingCard = document.getElementById('coachingCard');
-        const debugDiv = document.getElementById('debug');
+        // UI refs
+        const connectBtn      = document.getElementById('connectBtn');
+        const statusDiv       = document.getElementById('status');
+        const metricsCard     = document.getElementById('metricsCard');
+        const coachingCard    = document.getElementById('coachingCard');
+        const controlsCard    = document.getElementById('controlsCard');
+        const debugDiv        = document.getElementById('debug');
 
-        // Metric elements
-        const paceEl = document.getElementById('pace');
-        const speedEl = document.getElementById('speed');
+        const paceEl     = document.getElementById('pace');
+        const speedEl    = document.getElementById('speed');
         const distanceEl = document.getElementById('distance');
-        const timeEl = document.getElementById('time');
-        const inclineEl = document.getElementById('incline');
+        const timeEl     = document.getElementById('time');
+        const inclineEl  = document.getElementById('incline');
         const caloriesEl = document.getElementById('calories');
         const coachingMessageEl = document.getElementById('coachingMessage');
+        const targetSpeedEl   = document.getElementById('targetSpeed');
+        const targetInclineEl = document.getElementById('targetIncline');
 
-        // Check Web Bluetooth support
+        const speedUpBtn   = document.getElementById('speedUp');
+        const speedDownBtn = document.getElementById('speedDown');
+        const inclineUpBtn   = document.getElementById('inclineUp');
+        const inclineDownBtn = document.getElementById('inclineDown');
+        const preset7Btn  = document.getElementById('preset7');
+        const preset12Btn = document.getElementById('preset12');
+        const preset15Btn = document.getElementById('preset15');
+
         if (!navigator.bluetooth) {
-            statusDiv.textContent = 'Web Bluetooth not supported. Use Chrome on Android.';
+            statusDiv.textContent = 'Web Bluetooth not supported — use Chrome on Android';
             statusDiv.className = 'status disconnected';
             connectBtn.disabled = true;
-            log('Web Bluetooth API not available');
         }
 
-        // Connect button handler
         connectBtn.addEventListener('click', async () => {
-            try {
-                await connectToTreadmill();
-            } catch (error) {
-                log(`Connection error: ${error.message}`);
-                updateStatus('disconnected', `Error: ${error.message}`);
+            if (device && device.gatt.connected) {
+                disconnect();
+            } else {
+                try {
+                    await connectToTreadmill();
+                } catch (error) {
+                    log(`Connection error: ${error.message}`);
+                    updateStatus('disconnected', `Error: ${error.message}`);
+                }
             }
         });
 
-        async function connectToTreadmill() {
-            updateStatus('connecting', 'Searching for treadmill...');
-            log('Requesting Bluetooth device...');
+        speedUpBtn.addEventListener('click',   () => adjustSpeed(SPEED_STEP));
+        speedDownBtn.addEventListener('click', () => adjustSpeed(-SPEED_STEP));
+        inclineUpBtn.addEventListener('click',   () => adjustIncline(INCLINE_STEP));
+        inclineDownBtn.addEventListener('click', () => adjustIncline(-INCLINE_STEP));
+        preset7Btn.addEventListener('click',  () => setTargetSpeed(7));
+        preset12Btn.addEventListener('click', () => setTargetSpeed(12.5));
+        preset15Btn.addEventListener('click', () => setTargetSpeed(15));
 
-            // Request device with FTMS service filter
+        function adjustSpeed(delta) {
+            const v = parseFloat((targetSpeed + delta).toFixed(1));
+            setTargetSpeed(Math.max(SPEED_MIN, Math.min(SPEED_MAX, v)));
+        }
+
+        function adjustIncline(delta) {
+            const v = parseFloat((targetIncline + delta).toFixed(1));
+            setTargetIncline(Math.max(INCLINE_MIN, Math.min(INCLINE_MAX, v)));
+        }
+
+        async function setTargetSpeed(speed) {
+            targetSpeed = speed;
+            targetSpeedEl.textContent = speed.toFixed(1);
+            await sendSpeedCommand(speed);
+        }
+
+        async function setTargetIncline(incline) {
+            targetIncline = incline;
+            targetInclineEl.textContent = incline.toFixed(1);
+            await sendInclineCommand(incline);
+        }
+
+        async function sendSpeedCommand(speedKmh) {
+            if (!controlPointCharacteristic) return;
+            try {
+                const buf  = new ArrayBuffer(3);
+                const view = new DataView(buf);
+                view.setUint8(0, 0x02);                            // Set Target Speed
+                view.setUint16(1, Math.round(speedKmh * 100), true); // 0.01 km/h units
+                await controlPointCharacteristic.writeValue(buf);
+                log(`Speed → ${speedKmh} km/h`);
+            } catch (e) { log(`Speed write error: ${e.message}`); }
+        }
+
+        async function sendInclineCommand(inclinePct) {
+            if (!controlPointCharacteristic) return;
+            try {
+                const buf  = new ArrayBuffer(3);
+                const view = new DataView(buf);
+                view.setUint8(0, 0x03);                             // Set Target Inclination
+                view.setInt16(1, Math.round(inclinePct * 10), true); // 0.1% units
+                await controlPointCharacteristic.writeValue(buf);
+                log(`Incline → ${inclinePct}%`);
+            } catch (e) { log(`Incline write error: ${e.message}`); }
+        }
+
+        async function connectToTreadmill() {
+            updateStatus('connecting', 'Searching...');
+            log('Requesting BLE device...');
+
             device = await navigator.bluetooth.requestDevice({
-                filters: [
-                    { services: [FTMS_SERVICE_UUID] }
-                ],
+                filters: [{ services: [FTMS_SERVICE_UUID] }],
                 optionalServices: [FTMS_SERVICE_UUID]
             });
 
-            log(`Device selected: ${device.name}`);
+            log(`Device: ${device.name}`);
             updateStatus('connecting', `Connecting to ${device.name}...`);
 
-            // Connect to GATT server
-            const server = await device.gatt.connect();
-            log('Connected to GATT server');
-
-            // Get FTMS service
+            const server  = await device.gatt.connect();
             const service = await server.getPrimaryService(FTMS_SERVICE_UUID);
             log('Got Fitness Machine Service');
 
-            // Get Treadmill Data characteristic
+            // Treadmill data notifications
             treadmillDataCharacteristic = await service.getCharacteristic(TREADMILL_DATA_UUID);
-            log('Got Treadmill Data characteristic');
-
-            // Start notifications
             await treadmillDataCharacteristic.startNotifications();
-            log('Notifications started');
-
-            // Listen for data updates
             treadmillDataCharacteristic.addEventListener('characteristicvaluechanged', handleTreadmillData);
+            log('Treadmill data notifications started');
 
-            // Handle disconnection
+            // Control point (write speed / incline)
+            try {
+                controlPointCharacteristic = await service.getCharacteristic(CONTROL_POINT_UUID);
+                const reqBuf = new ArrayBuffer(1);
+                new DataView(reqBuf).setUint8(0, 0x00); // Request Control
+                await controlPointCharacteristic.writeValue(reqBuf);
+                log('Control point acquired');
+                controlsCard.classList.add('active');
+                enableControls(true);
+            } catch (e) {
+                log(`Control point unavailable: ${e.message}`);
+                controlPointCharacteristic = null;
+            }
+
             device.addEventListener('gattserverdisconnected', handleDisconnection);
 
-            updateStatus('connected', `Connected to ${device.name}`);
+            updateStatus('connected', `Connected: ${device.name}`);
             metricsCard.classList.remove('hidden');
             coachingCard.classList.add('active');
             connectBtn.textContent = 'Disconnect';
-            connectBtn.onclick = disconnect;
-
             startTime = Date.now();
         }
 
+        function enableControls(on) {
+            [speedUpBtn, speedDownBtn, inclineUpBtn, inclineDownBtn,
+             preset7Btn, preset12Btn, preset15Btn].forEach(b => b.disabled = !on);
+        }
+
         function handleTreadmillData(event) {
-            const value = event.target.value;
-            const data = parseTreadmillData(value);
-            
+            const data = parseTreadmillData(event.target.value);
             updateMetrics(data);
-            
-            // Provide coaching every 15 seconds
             const now = Date.now();
             if (now - lastCoachingTime > COACHING_INTERVAL) {
                 provideCoaching(data);
@@ -362,185 +521,115 @@
         }
 
         function parseTreadmillData(dataView) {
-            // FTMS Treadmill Data format (based on Bluetooth SIG spec)
-            // Flags are in bytes 0-1 (16-bit)
             const flags = dataView.getUint16(0, true);
-            let offset = 2;
-
-            const data = {
-                speed: 0,
-                incline: 0,
-                distance: 0,
-                calories: 0,
-                time: 0,
-                heartRate: 0
-            };
-
-            // Parse based on flags
-            // Bit 0: More data (0 = more data, 1 = no more data)
-            // Bit 1: Average Speed present
-            // Bit 2: Total Distance present
-            // Bit 3: Inclination and Ramp Angle present
-            // Bit 4: Elevation Gain present
-            // Bit 5: Instantaneous Pace present
-            // Bit 6: Average Pace present
-            // Bit 7: Expended Energy present
-            // Bit 8: Heart Rate present
-            // Bit 9: Metabolic Equivalent present
-            // Bit 10: Elapsed Time present
-            // Bit 11: Remaining Time present
+            let offset  = 2;
+            const data  = { speed: 0, incline: 0, distance: 0, calories: 0, time: 0, heartRate: 0 };
 
             try {
-                // Instantaneous Speed (always present, uint16, resolution 0.01 km/h)
+                // Instantaneous Speed — always present, uint16, 0.01 km/h
                 data.speed = dataView.getUint16(offset, true) * 0.01;
                 offset += 2;
 
-                // Average speed (if bit 1 set)
-                if (flags & 0x02) {
-                    offset += 2; // Skip average speed
-                }
+                if (flags & 0x02) offset += 2; // Average Speed
 
-                // Total Distance (if bit 2 set) - uint24, resolution 1m
-                if (flags & 0x04) {
-                    data.distance = (dataView.getUint8(offset) + 
-                                   (dataView.getUint8(offset + 1) << 8) + 
-                                   (dataView.getUint8(offset + 2) << 16)) / 1000; // Convert to km
+                if (flags & 0x04) { // Total Distance, uint24, 1m units
+                    data.distance = (dataView.getUint8(offset) +
+                                    (dataView.getUint8(offset + 1) << 8) +
+                                    (dataView.getUint8(offset + 2) << 16)) / 1000;
                     offset += 3;
                 }
 
-                // Inclination and Ramp Angle (if bit 3 set)
-                if (flags & 0x08) {
-                    data.incline = dataView.getInt16(offset, true) * 0.1; // Resolution 0.1%
-                    offset += 2;
-                    offset += 2; // Skip ramp angle
+                if (flags & 0x08) { // Inclination, int16, 0.1%
+                    data.incline = dataView.getInt16(offset, true) * 0.1;
+                    offset += 4; // inclination + ramp angle
                 }
 
-                // Skip Elevation Gain if present (bit 4)
-                if (flags & 0x10) {
-                    offset += 2;
-                }
+                if (flags & 0x10) offset += 2; // Elevation Gain
+                if (flags & 0x20) offset += 1; // Instantaneous Pace
+                if (flags & 0x40) offset += 1; // Average Pace
 
-                // Skip Instantaneous Pace if present (bit 5)
-                if (flags & 0x20) {
-                    offset += 1;
-                }
-
-                // Skip Average Pace if present (bit 6)
-                if (flags & 0x40) {
-                    offset += 1;
-                }
-
-                // Expended Energy (if bit 7 set)
-                if (flags & 0x80) {
+                if (flags & 0x80) { // Expended Energy
                     data.calories = dataView.getUint16(offset, true);
-                    offset += 2;
-                    offset += 2; // Skip energy per hour
-                    offset += 1; // Skip energy per minute
+                    offset += 5; // total + per hour + per minute
                 }
 
-                // Heart Rate (if bit 8 set)
-                if (flags & 0x100) {
-                    data.heartRate = dataView.getUint8(offset);
-                    offset += 1;
-                }
+                if (flags & 0x100) { data.heartRate = dataView.getUint8(offset); offset += 1; }
+                if (flags & 0x200) offset += 1; // Metabolic Equivalent
+                if (flags & 0x400) { data.time = dataView.getUint16(offset, true); offset += 2; }
 
-                // Skip Metabolic Equivalent if present (bit 9)
-                if (flags & 0x200) {
-                    offset += 1;
-                }
-
-                // Elapsed Time (if bit 10 set) - uint16, resolution 1s
-                if (flags & 0x400) {
-                    data.time = dataView.getUint16(offset, true);
-                    offset += 2;
-                }
-
-            } catch (error) {
-                log(`Parse error: ${error.message}`);
-            }
+            } catch (e) { log(`Parse error: ${e.message}`); }
 
             log(`Parsed: ${JSON.stringify(data)}`);
             return data;
         }
 
         function updateMetrics(data) {
-            // Update speed
             speedEl.textContent = data.speed.toFixed(1);
 
-            // Calculate and update pace (min/km)
             if (data.speed > 0) {
-                const paceMinPerKm = 60 / data.speed;
-                const minutes = Math.floor(paceMinPerKm);
-                const seconds = Math.round((paceMinPerKm - minutes) * 60);
-                paceEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                const pace = 60 / data.speed;
+                const m = Math.floor(pace);
+                const s = Math.round((pace - m) * 60);
+                paceEl.textContent = `${m}:${s.toString().padStart(2, '0')}`;
             } else {
                 paceEl.textContent = '--:--';
             }
 
-            // Update distance
             distanceEl.textContent = data.distance.toFixed(2);
 
-            // Update time
             if (data.time > 0) {
-                const minutes = Math.floor(data.time / 60);
-                const seconds = data.time % 60;
-                timeEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                const m = Math.floor(data.time / 60);
+                const s = data.time % 60;
+                timeEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
             }
 
-            // Update incline
-            inclineEl.textContent = data.incline.toFixed(1);
-
-            // Update calories
+            inclineEl.textContent  = data.incline.toFixed(1);
             caloriesEl.textContent = data.calories;
         }
 
         function provideCoaching(data) {
-            let message = '';
-            let emoji = '🎯';
+            let message = '', emoji = '🎯';
 
             if (data.speed === 0) {
                 emoji = '⏸️';
-                message = 'Take your time to warm up. Start when you\'re ready!';
+                message = "Take your time to warm up. Start when you're ready!";
             } else if (data.speed < 5) {
                 emoji = '🚶';
-                message = `Nice warm-up pace at ${data.speed.toFixed(1)} km/h. Perfect for getting those muscles ready.`;
-            } else if (data.speed >= 5 && data.speed < 8) {
+                message = `Nice warm-up at ${data.speed.toFixed(1)} km/h. Getting those muscles ready.`;
+            } else if (data.speed < 8) {
                 emoji = '🏃';
-                message = `Solid easy pace! You're at ${data.speed.toFixed(1)} km/h. This builds your aerobic base.`;
-            } else if (data.speed >= 8 && data.speed < 11) {
+                message = `Solid easy pace at ${data.speed.toFixed(1)} km/h. Building your aerobic base.`;
+            } else if (data.speed < 11) {
                 emoji = '💪';
-                message = `Great tempo pace at ${data.speed.toFixed(1)} km/h! Keep this effort controlled and breathing steady.`;
+                message = `Great tempo at ${data.speed.toFixed(1)} km/h! Keep breathing steady.`;
             } else {
                 emoji = '🔥';
-                message = `Speed work! ${data.speed.toFixed(1)} km/h is strong. Mind your form and breathing.`;
+                message = `Speed work! ${data.speed.toFixed(1)} km/h is strong — mind your form!`;
             }
 
-            // Add incline feedback
             if (data.incline > 2) {
                 message += ` With ${data.incline.toFixed(1)}% incline, you're building serious strength!`;
             }
-
-            // Add distance milestone
             if (data.distance > 0 && data.distance % 1 < 0.1) {
-                message += ` You've covered ${data.distance.toFixed(1)}km - keep it up!`;
+                message += ` ${data.distance.toFixed(1)} km covered — keep it up!`;
             }
 
             coachingMessageEl.innerHTML = `<strong>${emoji} Coach Says:</strong>${message}`;
         }
 
         function disconnect() {
-            if (device && device.gatt.connected) {
-                device.gatt.disconnect();
-            }
+            if (device && device.gatt.connected) device.gatt.disconnect();
         }
 
         function handleDisconnection() {
             log('Device disconnected');
-            updateStatus('disconnected', 'Disconnected from treadmill');
+            updateStatus('disconnected', 'Disconnected');
             metricsCard.classList.add('hidden');
             coachingCard.classList.remove('active');
-            connectBtn.textContent = 'Connect to Treadmill';
-            connectBtn.onclick = () => connectToTreadmill();
+            controlsCard.classList.remove('active');
+            connectBtn.textContent = 'Connect';
+            enableControls(false);
+            controlPointCharacteristic = null;
         }
 
         function updateStatus(state, message) {
@@ -549,17 +638,10 @@
         }
 
         function log(message) {
-            const timestamp = new Date().toLocaleTimeString();
-            debugDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            const ts = new Date().toLocaleTimeString();
+            debugDiv.innerHTML += `[${ts}] ${message}<br>`;
             debugDiv.scrollTop = debugDiv.scrollHeight;
             console.log(message);
-        }
-
-        // Format time helper
-        function formatTime(seconds) {
-            const mins = Math.floor(seconds / 60);
-            const secs = seconds % 60;
-            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
     </script>
 </body>
