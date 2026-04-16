@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Running Coach</title>
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#090909">
+    <meta name="theme-color" content="#1A1E27">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Running Coach">
@@ -17,17 +17,17 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            --bg:        #090909;
-            --surface:   #141414;
-            --surface-2: #1d1d1d;
+            --bg:        #1A1E27;
+            --surface:   #252C3A;
+            --surface-2: #2E3447;
             --border:    rgba(255,255,255,0.07);
-            --border-2:  rgba(255,255,255,0.13);
+            --border-2:  rgba(255,255,255,0.12);
             --red:       #D6364B;
-            --green:     #00B87A;
+            --green:     #3DBF8A;
             --amber:     #F0A500;
             --text-1:    #FFFFFF;
-            --text-2:    rgba(255,255,255,0.5);
-            --text-3:    rgba(255,255,255,0.24);
+            --text-2:    rgba(255,255,255,0.45);
+            --text-3:    rgba(255,255,255,0.28);
         }
 
         body {
@@ -64,7 +64,7 @@
 
         .btn-history-fab {
             background: var(--surface);
-            border: 1px solid var(--border-2);
+            box-shadow: 0 1px 8px rgba(0,0,0,0.3);
             color: var(--text-2);
             font-family: 'Space Grotesk', sans-serif;
             font-size: 0.7em;
@@ -86,7 +86,7 @@
             border-radius: 16px;
             padding: 18px 20px;
             margin-bottom: 10px;
-            border: 1px solid var(--border);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.35);
         }
 
         .card-title {
@@ -155,10 +155,10 @@
         .goal-inputs { display: flex; gap: 10px; margin-bottom: 12px; }
         .goal-field {
             flex: 1;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
             border-radius: 12px;
             padding: 12px 14px;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.25);
         }
         .goal-field label {
             display: block;
@@ -236,8 +236,7 @@
 
         /* Coach card */
         .coaching-message {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
             color: rgba(255,255,255,0.7);
             padding: 14px 16px;
             border-radius: 12px;
@@ -320,7 +319,7 @@
         }
 
         .btn-ctrl {
-            background: var(--surface-2); color: var(--text-1); border: 1px solid var(--border-2);
+            background: var(--surface-2); color: var(--text-1); box-shadow: 0 2px 6px rgba(0,0,0,0.3);
             width: 46px; height: 46px; border-radius: 12px; font-size: 1.5em;
             font-weight: 300; cursor: pointer; transition: all 0.13s;
             display: flex; align-items: center; justify-content: center; flex-shrink: 0; line-height: 1;
@@ -331,14 +330,14 @@
 
         .presets { display: flex; gap: 7px; margin-top: 2px; margin-bottom: 12px; padding-left: 64px; }
         .btn-preset {
-            flex: 1; background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border);
+            flex: 1; background: var(--surface-2); color: var(--text-2); border: none;
             padding: 7px 4px; border-radius: 8px; font-family: 'Space Grotesk', sans-serif;
             font-size: 0.7em; font-weight: 700; cursor: pointer; transition: all 0.13s;
             text-align: center; letter-spacing: 0.2px;
         }
         .btn-preset:hover:not(:disabled) { background: #282828; color: var(--text-1); border-color: var(--border-2); }
         .btn-preset:disabled { opacity: 0.2; cursor: not-allowed; }
-        .ctrl-divider { height: 1px; background: var(--border); margin: 12px 0; }
+        .ctrl-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 12px 0; }
 
         /* Live metrics card */
         .metrics-hero {
@@ -347,7 +346,7 @@
             align-items: flex-start;
             margin-bottom: 14px;
             padding-bottom: 16px;
-            border-bottom: 1px solid var(--border);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
         }
 
         .metric-speed-block { flex: 1.5; min-width: 0; padding-right: 16px; }
@@ -391,7 +390,7 @@
         .hr-block {
             flex: 1;
             text-align: right;
-            border-left: 1px solid var(--border);
+            border-left: 1px solid rgba(255,255,255,0.08);
             padding-left: 16px;
         }
         .hr-block.hidden { display: none; }
@@ -430,10 +429,10 @@
         }
 
         .metric {
-            background: rgba(255,255,255,0.03);
-            padding: 11px 12px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            padding: 14px 14px;
+            border-radius: 12px;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.25);
         }
         .metric-label {
             display: block;
@@ -465,7 +464,7 @@
         }
         .progress-track {
             height: 3px;
-            background: var(--border);
+            background: rgba(255,255,255,0.08);
             border-radius: 2px;
             overflow: hidden;
             margin-bottom: 10px;
@@ -493,8 +492,8 @@
 
         .modal-card {
             background: var(--surface);
-            border: 1px solid var(--border-2);
             border-radius: 20px 20px 0 0;
+            box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
             padding: 22px 20px 32px;
             width: 100%;
             max-width: 480px;
@@ -516,9 +515,9 @@
         }
         .modal-summary .modal-stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
         .modal-stat {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.05);
             border-radius: 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
             padding: 12px 10px;
             text-align: center;
         }
@@ -588,7 +587,7 @@
             align-items: center;
             justify-content: space-between;
             padding: 18px 18px 14px;
-            border-bottom: 1px solid var(--border);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
             flex-shrink: 0;
         }
         .history-overlay-title {
@@ -631,8 +630,8 @@
         }
         .history-item {
             background: var(--surface);
-            border: 1px solid var(--border);
             border-radius: 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
             padding: 14px 16px;
             margin-bottom: 10px;
         }
@@ -734,7 +733,6 @@
         .btn-connect-hr {
             background: var(--surface-2);
             color: var(--text-2);
-            border: 1px solid var(--border-2);
         }
         .btn-connect-hr:hover { background: #282828; color: var(--text-1); }
     </style>
