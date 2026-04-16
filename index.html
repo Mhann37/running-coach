@@ -20,9 +20,28 @@
         .header {
             text-align: center;
             padding: 6px 0 10px;
+            position: relative;
         }
         .header h1 { font-size: 1.3em; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
         .header p  { font-size: 0.75em; color: #4f46e5; margin-top: 2px; }
+
+        .btn-history-fab {
+            position: absolute;
+            right: 0;
+            top: 6px;
+            background: #1a1a30;
+            border: 1px solid #2a2a48;
+            color: #a78bfa;
+            font-size: 0.78em;
+            font-weight: 700;
+            padding: 5px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            letter-spacing: 0.3px;
+            transition: all 0.15s;
+        }
+        .btn-history-fab:hover { background: #252540; color: #c4b5fd; }
+        .btn-history-fab.hidden { display: none; }
 
         .card {
             background: #12121e;
@@ -189,6 +208,45 @@
             text-align: right;
         }
 
+        /* Session controls — Pause / Stop Run */
+        .session-controls {
+            display: none;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .session-controls.active { display: flex; }
+
+        .btn-pause {
+            flex: 1;
+            background: #1a1a30;
+            color: #fbbf24;
+            border: 1px solid rgba(251,191,36,0.3);
+            padding: 11px;
+            font-size: 0.9em;
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.3px;
+        }
+        .btn-pause:hover { background: #252540; box-shadow: 0 0 12px rgba(251,191,36,0.2); }
+        .btn-pause.paused { color: #34d399; border-color: rgba(16,185,129,0.3); }
+
+        .btn-stop {
+            flex: 1;
+            background: rgba(239,68,68,0.1);
+            color: #f87171;
+            border: 1px solid rgba(239,68,68,0.3);
+            padding: 11px;
+            font-size: 0.9em;
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.3px;
+        }
+        .btn-stop:hover { background: rgba(239,68,68,0.18); box-shadow: 0 0 12px rgba(239,68,68,0.2); }
+
         /* Controls */
         .control-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
         .control-label {
@@ -258,48 +316,200 @@
             width: 0%;
         }
 
-        /* Workout history */
-        .history-card { display: none; }
-        .history-card.active { display: block; }
+        /* Stop Session Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 100;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 24px;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .modal-card {
+            background: #12121e;
+            border: 1px solid #1e1e38;
+            border-radius: 18px 18px 14px 14px;
+            padding: 18px 16px 16px;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 -8px 40px rgba(0,0,0,0.6);
+        }
+        .modal-title {
+            font-size: 0.75em;
+            font-weight: 700;
+            color: #00e5ff;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+        .modal-summary {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .modal-stat {
+            flex: 1;
+            background: #0a0a18;
+            border: 1px solid #1e1e38;
+            border-radius: 10px;
+            padding: 10px 6px;
+            text-align: center;
+        }
+        .modal-stat span {
+            display: block;
+            font-size: 1.4em;
+            font-weight: 800;
+            color: #00e5ff;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+        .modal-stat small {
+            font-size: 0.65em;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-weight: 600;
+        }
+        .btn-modal-save {
+            width: 100%;
+            background: linear-gradient(135deg, #059669, #047857);
+            color: white;
+            border: none;
+            padding: 12px;
+            font-size: 0.95em;
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+        }
+        .btn-modal-save:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        .btn-modal-discard {
+            width: 100%;
+            background: transparent;
+            color: #64748b;
+            border: 1px solid #1e1e38;
+            padding: 10px;
+            font-size: 0.88em;
+            font-weight: 600;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-modal-discard:hover { color: #94a3b8; border-color: #2a2a48; }
+
+        /* History overlay */
+        .history-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #08081a;
+            z-index: 90;
+            flex-direction: column;
+        }
+        .history-overlay.active { display: flex; }
+
+        .history-overlay-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px 10px;
+            border-bottom: 1px solid #1e1e38;
+            flex-shrink: 0;
+        }
+        .history-overlay-title {
+            font-size: 0.75em;
+            font-weight: 700;
+            color: #00e5ff;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+        .btn-close-history {
+            background: #1a1a30;
+            border: 1px solid #2a2a48;
+            color: #94a3b8;
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .history-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 12px 24px;
+            max-width: 480px;
+            width: 100%;
+            margin: 0 auto;
+        }
 
         .history-empty {
             font-size: 0.8em;
             color: #334155;
             text-align: center;
-            padding: 8px 0;
+            padding: 32px 0;
         }
         .history-item {
-            background: #0a0a18;
+            background: #12121e;
             border: 1px solid #1e1e38;
-            border-radius: 10px;
-            padding: 10px 12px;
-            margin-bottom: 6px;
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-bottom: 8px;
         }
         .history-item:last-child { margin-bottom: 0; }
+        .history-item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
         .history-date {
             font-size: 0.7em;
             color: #475569;
             font-weight: 600;
-            margin-bottom: 6px;
         }
-        .history-metrics {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 6px;
-        }
-        .history-stat { text-align: center; }
-        .history-stat-val { font-size: 1em; font-weight: 800; color: #00e5ff; }
-        .history-stat-lbl { font-size: 0.62em; color: #334155; text-transform: uppercase; letter-spacing: 0.5px; }
         .history-goal-badge {
             display: inline-block;
             font-size: 0.65em;
             font-weight: 700;
             padding: 2px 7px;
             border-radius: 5px;
-            margin-top: 6px;
         }
         .history-goal-badge.achieved { background: rgba(5,150,105,0.15); color: #34d399; border: 1px solid rgba(5,150,105,0.3); }
         .history-goal-badge.partial  { background: rgba(251,191,36,0.1);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+
+        .history-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+        .history-stat { text-align: center; }
+        .history-stat-val { font-size: 1em; font-weight: 800; color: #00e5ff; }
+        .history-stat-lbl { font-size: 0.62em; color: #334155; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .history-sparkline {
+            margin-top: 6px;
+            height: 32px;
+            overflow: hidden;
+        }
+        .history-sparkline svg { display: block; }
+
+        .history-goal-line {
+            font-size: 0.7em;
+            color: #475569;
+            margin-top: 4px;
+        }
 
         /* Debug */
         .debug-summary { cursor: pointer; font-size: 0.8em; font-weight: 600; color: #312e81; user-select: none; }
@@ -341,6 +551,7 @@
     <div class="header">
         <h1>🏃 Running Coach</h1>
         <p>Real-time treadmill coaching via BLE</p>
+        <button class="btn-history-fab hidden" id="historyFab">📋 History</button>
     </div>
 
     <!-- Connect -->
@@ -389,6 +600,12 @@
             Set your goal above, then start your run for real-time coaching.
         </div>
         <div class="coach-timer" id="coachTimer"></div>
+    </div>
+
+    <!-- Session Controls (Pause / Stop Run) — visible when connected -->
+    <div class="session-controls" id="sessionControls">
+        <button class="btn-pause" id="pauseBtn">⏸ Pause</button>
+        <button class="btn-stop"  id="stopBtn">⏹ Stop Run</button>
     </div>
 
     <!-- Speed & Incline Controls -->
@@ -471,12 +688,6 @@
         </div>
     </div>
 
-    <!-- Workout History -->
-    <div class="card history-card" id="historyCard">
-        <div class="card-title">Recent Runs</div>
-        <div id="historyList"></div>
-    </div>
-
     <!-- Debug -->
     <div class="card">
         <details>
@@ -487,14 +698,46 @@
 
 </div>
 
+<!-- Stop Session Modal (sheet from bottom) -->
+<div class="modal-overlay" id="stopModal">
+    <div class="modal-card">
+        <div class="modal-title">End Run</div>
+        <div class="modal-summary">
+            <div class="modal-stat">
+                <span id="stopModalDist">0.00</span>
+                <small>km</small>
+            </div>
+            <div class="modal-stat">
+                <span id="stopModalTime">00:00</span>
+                <small>time</small>
+            </div>
+            <div class="modal-stat">
+                <span id="stopModalCal">0</span>
+                <small>kcal</small>
+            </div>
+        </div>
+        <button id="saveRunBtn"    class="btn-modal-save">💾 Save Run</button>
+        <button id="discardRunBtn" class="btn-modal-discard">Discard</button>
+    </div>
+</div>
+
+<!-- History Overlay (full-screen slide-in) -->
+<div class="history-overlay" id="historyOverlay">
+    <div class="history-overlay-header">
+        <span class="history-overlay-title">Recent Runs</span>
+        <button class="btn-close-history" id="closeHistoryBtn">✕</button>
+    </div>
+    <div class="history-scroll" id="historyList"></div>
+</div>
+
 <script>
     // ── Constants ──────────────────────────────────────────────────────────────
     const FTMS_SERVICE_UUID   = 0x1826;
     const TREADMILL_DATA_UUID = 0x2ACD;
     const CONTROL_POINT_UUID  = 0x2AD9;
 
-    const HR_SERVICE_UUID     = 0x180D;   // Heart Rate Service
-    const HR_MEASUREMENT_UUID = 0x2A37;   // Heart Rate Measurement
+    const HR_SERVICE_UUID     = 0x180D;
+    const HR_MEASUREMENT_UUID = 0x2A37;
 
     const SPEED_STEP    = 0.5;
     const INCLINE_STEP  = 0.5;
@@ -502,24 +745,27 @@
     const SPEED_MAX     = 25;
     const INCLINE_MIN   = 0;
     const INCLINE_MAX   = 15;
-    const COACHING_INTERVAL  = 15000; // ms
+    const COACHING_INTERVAL   = 15000;
     const MAX_RECONNECT_TRIES = 5;
     const HISTORY_MAX         = 10;
+    const SPEED_SAMPLE_INTERVAL_MS = 30000; // one sample per 30 s
+    const SPEED_SAMPLE_MAX    = 120;
 
     // ── State ──────────────────────────────────────────────────────────────────
     let device                      = null;
     let treadmillDataCharacteristic = null;
     let controlPointCharacteristic  = null;
-    let startTime                   = null;
     let lastCoachingTime            = 0;
     let targetSpeed                 = 0;
     let targetIncline               = 0;
     let manualDisconnect            = false;
+    let sessionStopped              = false;  // true after Stop Run modal completes
+    let paused                      = false;
     let reconnectAttempts           = 0;
     let coachingIntervalId          = null;
     let nextCoachCountdown          = COACHING_INTERVAL / 1000;
-    let goalDistance                = null; // km, or null
-    let goalTime                    = null; // minutes, or null
+    let goalDistance                = null;
+    let goalTime                    = null;
     let goalConfirmed               = false;
 
     // HR Monitor state
@@ -529,11 +775,22 @@
     let hrManualDisconnect  = false;
     let hrReconnectAttempts = 0;
 
-    // Session tracking for history
+    // Raw last BLE packet (cumulative treadmill values)
+    let lastData = { speed: 0, incline: 0, distance: 0, calories: 0, time: 0, heartRate: 0 };
+
+    // Session-relative tracking (lazy-initialised on first packet)
+    let sessionStartDistance      = null;
+    let sessionStartTreadmillTime = null;
+    let sessionStartCalories      = null;
+
+    // Per-session accumulators
     let sessionMaxSpeed   = 0;
     let sessionSpeedSum   = 0;
     let sessionSpeedCount = 0;
-    let lastData          = { speed: 0, incline: 0, distance: 0, calories: 0, time: 0 };
+    let splits            = [];      // [{ km, time }]
+    let lastSplitDistance = 0;       // session-relative km of last recorded split
+    let speedSamples      = [];      // [[sessionTimeSec, speedKmh], ...]
+    let lastSpeedSampleMs = 0;
 
     // ── UI refs ────────────────────────────────────────────────────────────────
     const connectBtn       = document.getElementById('connectBtn');
@@ -542,7 +799,6 @@
     const coachingCard     = document.getElementById('coachingCard');
     const controlsCard     = document.getElementById('controlsCard');
     const goalCard         = document.getElementById('goalCard');
-    const historyCard      = document.getElementById('historyCard');
     const debugDiv         = document.getElementById('debug');
 
     const paceEl           = document.getElementById('pace');
@@ -585,6 +841,22 @@
     const distanceProgressFill = document.getElementById('distanceProgressFill');
     const timeProgressFill     = document.getElementById('timeProgressFill');
 
+    const sessionControlsEl = document.getElementById('sessionControls');
+    const pauseBtn          = document.getElementById('pauseBtn');
+    const stopBtn           = document.getElementById('stopBtn');
+
+    const stopModal       = document.getElementById('stopModal');
+    const stopModalDistEl = document.getElementById('stopModalDist');
+    const stopModalTimeEl = document.getElementById('stopModalTime');
+    const stopModalCalEl  = document.getElementById('stopModalCal');
+    const saveRunBtn      = document.getElementById('saveRunBtn');
+    const discardRunBtn   = document.getElementById('discardRunBtn');
+
+    const historyFab      = document.getElementById('historyFab');
+    const historyOverlay  = document.getElementById('historyOverlay');
+    const closeHistoryBtn = document.getElementById('closeHistoryBtn');
+    const historyList     = document.getElementById('historyList');
+
     // ── Init ───────────────────────────────────────────────────────────────────
     if (!navigator.bluetooth) {
         statusDiv.textContent = 'Web Bluetooth not supported — use Chrome on Android';
@@ -592,7 +864,8 @@
         connectBtn.disabled = true;
     }
 
-    renderHistory();
+    // Show history FAB if there are saved runs
+    if (getHistory().length > 0) historyFab.classList.remove('hidden');
 
     // ── Event listeners ────────────────────────────────────────────────────────
     connectBtn.addEventListener('click', async () => {
@@ -625,6 +898,54 @@
         goalConfirmed = false;
     });
 
+    // Pause / Resume
+    pauseBtn.addEventListener('click', () => {
+        paused = !paused;
+        if (paused) {
+            pauseBtn.textContent = '▶ Resume';
+            pauseBtn.classList.add('paused');
+            stopCoachingTimer();
+            coachingMessageEl.innerHTML = '<strong>⏸️ Paused</strong>Tap Resume when ready.';
+            coachTimerEl.textContent = '';
+            log('Session paused');
+        } else {
+            pauseBtn.textContent = '⏸ Pause';
+            pauseBtn.classList.remove('paused');
+            startCoachingTimer();
+            log('Session resumed');
+        }
+    });
+
+    // Stop Run
+    stopBtn.addEventListener('click', () => stopSession());
+
+    // Stop modal actions
+    saveRunBtn.addEventListener('click', () => {
+        const sd = getSessionData(lastData);
+        if (sd) {
+            const workout = buildWorkoutRecord(sd);
+            persistWorkout(workout);
+            historyFab.classList.remove('hidden');
+        }
+        stopModal.classList.remove('active');
+        finishSession();
+    });
+
+    discardRunBtn.addEventListener('click', () => {
+        stopModal.classList.remove('active');
+        finishSession();
+        log('Run discarded');
+    });
+
+    // History overlay
+    historyFab.addEventListener('click', () => {
+        renderHistoryOverlay();
+        historyOverlay.classList.add('active');
+    });
+    closeHistoryBtn.addEventListener('click', () => {
+        historyOverlay.classList.remove('active');
+    });
+
     hrConnectBtn.addEventListener('click', async () => {
         if (hrDevice && hrDevice.gatt.connected) {
             hrManualDisconnect = true;
@@ -641,7 +962,6 @@
         }
     });
 
-    // Re-attempt connection when user switches back to this tab/app
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden && device && !device.gatt.connected && !manualDisconnect) {
             log('App foregrounded — attempting reconnect...');
@@ -649,16 +969,48 @@
         }
     });
 
+    // ── Session-relative helpers ───────────────────────────────────────────────
+    /**
+     * Returns session-relative metrics derived from raw cumulative BLE data.
+     * Returns null if session start hasn't been captured yet.
+     */
+    function getSessionData(data) {
+        if (sessionStartDistance === null) return null;
+        return {
+            distance:  Math.max(0, data.distance  - sessionStartDistance),
+            time:      Math.max(0, data.time       - sessionStartTreadmillTime),
+            calories:  Math.max(0, data.calories   - sessionStartCalories),
+            speed:     data.speed,
+            incline:   data.incline,
+            heartRate: data.heartRate || 0
+        };
+    }
+
+    function resetSessionState() {
+        sessionStartDistance      = null;
+        sessionStartTreadmillTime = null;
+        sessionStartCalories      = null;
+        sessionMaxSpeed   = 0;
+        sessionSpeedSum   = 0;
+        sessionSpeedCount = 0;
+        splits            = [];
+        lastSplitDistance = 0;
+        speedSamples      = [];
+        lastSpeedSampleMs = 0;
+        paused            = false;
+        pauseBtn.textContent = '⏸ Pause';
+        pauseBtn.classList.remove('paused');
+    }
+
     // ── Goal logic ─────────────────────────────────────────────────────────────
     function confirmGoal() {
         const dVal = parseFloat(goalDistanceInput.value);
         const tVal = parseFloat(goalTimeInput.value);
 
-        goalDistance = (!isNaN(dVal) && dVal > 0) ? dVal : null;
-        goalTime     = (!isNaN(tVal) && tVal > 0) ? tVal : null;
+        goalDistance  = (!isNaN(dVal) && dVal > 0) ? dVal : null;
+        goalTime      = (!isNaN(tVal) && tVal > 0) ? tVal : null;
         goalConfirmed = true;
 
-        // Build summary text
         let parts = [];
         if (goalDistance) parts.push(`${goalDistance} km`);
         if (goalTime)     parts.push(`${goalTime} min`);
@@ -670,31 +1022,87 @@
         goalSummary.classList.add('active');
         goalInputSection.style.display = 'none';
 
-        // Show/hide progress bars
         distanceProgress.classList.toggle('active', !!goalDistance);
         timeProgress.classList.toggle('active', !!goalTime);
 
         log(`Goal set — distance: ${goalDistance} km, time: ${goalTime} min`);
 
-        // Trigger immediate coaching update
-        provideCoaching(lastData);
+        // Restart coaching timer (may have been stopped by finishSession)
+        startCoachingTimer();
         lastCoachingTime = Date.now();
     }
 
-    function updateGoalProgress(data) {
+    function updateGoalProgress(sd) {
+        if (!sd) return;
         if (goalDistance) {
-            const pct = Math.min(100, (data.distance / goalDistance) * 100);
+            const pct = Math.min(100, (sd.distance / goalDistance) * 100);
             distanceProgressFill.style.width = pct + '%';
             distanceProgressText.textContent =
-                `${data.distance.toFixed(2)} / ${goalDistance} km`;
+                `${sd.distance.toFixed(2)} / ${goalDistance} km`;
         }
         if (goalTime) {
-            const elapsedMin = data.time / 60;
+            const elapsedMin = sd.time / 60;
             const pct = Math.min(100, (elapsedMin / goalTime) * 100);
             timeProgressFill.style.width = pct + '%';
             timeProgressText.textContent =
                 `${elapsedMin.toFixed(1)} / ${goalTime} min`;
         }
+    }
+
+    // ── Stop / Finish session ──────────────────────────────────────────────────
+    /**
+     * Called when the user taps Stop Run.
+     * If there's nothing meaningful to save, just reset silently.
+     * Otherwise show the Save/Discard modal.
+     */
+    function stopSession() {
+        const sd = getSessionData(lastData);
+        if (!sd || (sd.distance < 0.05 && sd.time < 10)) {
+            // Nothing worth saving — silent reset
+            log('Stop tapped with no meaningful session data — resetting');
+            finishSession();
+            return;
+        }
+        // Populate modal
+        stopModalDistEl.textContent = sd.distance.toFixed(2);
+        stopModalTimeEl.textContent = formatDuration(sd.time);
+        stopModalCalEl.textContent  = sd.calories;
+        stopModal.classList.add('active');
+        // Stop coaching while modal is open
+        stopCoachingTimer();
+    }
+
+    /**
+     * Resets all session state after a Stop Run (Save or Discard).
+     * BLE stays connected — user can start a new session immediately.
+     */
+    function finishSession() {
+        sessionStopped = false;
+        stopCoachingTimer();
+        resetSessionState();
+
+        // Reset goal state
+        goalDistance  = null;
+        goalTime      = null;
+        goalConfirmed = false;
+
+        // Return goal UI to input mode
+        goalSummary.classList.remove('active');
+        goalInputSection.style.display = '';
+        goalDistanceInput.value = '';
+        goalTimeInput.value     = '';
+
+        // Hide progress bars
+        distanceProgress.classList.remove('active');
+        timeProgress.classList.remove('active');
+
+        // Set idle coaching message (no timer restart — waits for next goal confirm)
+        coachingMessageEl.innerHTML =
+            '<strong>⏸️ Ready when you are</strong>' +
+            'Set a new goal above, then tap Let\'s Go! to start your next run.';
+        coachTimerEl.textContent = '';
+
+        log('Session finished — ready for next run');
     }
 
     // ── Connection ─────────────────────────────────────────────────────────────
@@ -711,9 +1119,7 @@
         updateStatus('connecting', `Connecting to ${device.name}…`);
 
         await establishGattConnection();
-
         device.addEventListener('gattserverdisconnected', handleDisconnection);
-
         updateStatus('connected', `Connected: ${device.name}`);
         onConnected();
     }
@@ -746,15 +1152,12 @@
         metricsCard.classList.remove('hidden');
         coachingCard.classList.add('active');
         goalCard.classList.add('active');
+        sessionControlsEl.classList.add('active');
         connectBtn.textContent = 'Disconnect';
-        startTime = Date.now();
         reconnectAttempts = 0;
 
-        // Reset session stats
-        sessionMaxSpeed   = 0;
-        sessionSpeedSum   = 0;
-        sessionSpeedCount = 0;
-
+        // Session-relative state is NOT initialised here — lazy-init on first packet.
+        resetSessionState();
         startCoachingTimer();
     }
 
@@ -766,20 +1169,29 @@
         log('Device disconnected');
         stopCoachingTimer();
 
-        if (manualDisconnect) {
-            saveWorkoutIfValid();
-            resetUI();
+        // Safety check: Stop Run should never trigger a BLE disconnect
+        if (sessionStopped) {
+            log('Warning: BLE disconnected unexpectedly while sessionStopped=true');
+            sessionStopped = false;
             return;
         }
 
-        // Involuntary disconnect — try to reconnect
+        if (manualDisconnect) {
+            // User tapped Disconnect button — auto-save then tear down UI
+            autoSaveOnDisconnect();
+            resetUI();
+            manualDisconnect = false;
+            return;
+        }
+
+        // Involuntary disconnect — attempt reconnect
         await tryReconnect();
     }
 
     async function tryReconnect() {
         if (reconnectAttempts >= MAX_RECONNECT_TRIES) {
             log('Max reconnect attempts reached — giving up');
-            saveWorkoutIfValid();
+            autoSaveOnDisconnect();
             resetUI();
             updateStatus('disconnected', 'Connection lost');
             return;
@@ -793,15 +1205,12 @@
         await new Promise(r => setTimeout(r, delay));
 
         try {
-            // Remove old listener to avoid duplicates, add again after reconnect
             treadmillDataCharacteristic?.removeEventListener('characteristicvaluechanged', handleTreadmillData);
-
             await establishGattConnection();
-
             updateStatus('connected', `Connected: ${device.name}`);
             reconnectAttempts = 0;
             log('Reconnected successfully');
-            startCoachingTimer();
+            if (!paused) startCoachingTimer();
         } catch (e) {
             log(`Reconnect attempt ${reconnectAttempts} failed: ${e.message}`);
             await tryReconnect();
@@ -813,10 +1222,13 @@
         coachingCard.classList.remove('active');
         controlsCard.classList.remove('active');
         goalCard.classList.remove('active');
+        sessionControlsEl.classList.remove('active');
         connectBtn.textContent = 'Connect';
         enableControls(false);
         controlPointCharacteristic = null;
         updateStatus('disconnected', 'Disconnected');
+        // Close stop modal if open
+        stopModal.classList.remove('active');
     }
 
     function enableControls(on) {
@@ -958,15 +1370,45 @@
     function handleTreadmillData(event) {
         const data = parseTreadmillData(event.target.value);
         lastData = data;
-        updateMetrics(data);
-        updateGoalProgress(data);
 
-        // Track session stats
+        // ── Lazy session-start initialisation ─────────────────────────────────
+        if (sessionStartDistance === null) {
+            sessionStartDistance      = data.distance;
+            sessionStartTreadmillTime = data.time;
+            sessionStartCalories      = data.calories;
+            log(`Session start captured: dist=${data.distance.toFixed(3)}, time=${data.time}s, cal=${data.calories}`);
+        }
+
+        const sd = getSessionData(data);
+
+        // ── Speed accumulators ─────────────────────────────────────────────────
         if (data.speed > 0) {
             sessionSpeedSum += data.speed;
             sessionSpeedCount++;
             if (data.speed > sessionMaxSpeed) sessionMaxSpeed = data.speed;
         }
+
+        // ── Speed sample (throttled to once per 30 s) ──────────────────────────
+        const now = Date.now();
+        if (sd && data.speed > 0 && now - lastSpeedSampleMs >= SPEED_SAMPLE_INTERVAL_MS) {
+            speedSamples.push([sd.time, data.speed]);
+            if (speedSamples.length > SPEED_SAMPLE_MAX) speedSamples.shift();
+            lastSpeedSampleMs = now;
+        }
+
+        // ── Per-km split tracking ──────────────────────────────────────────────
+        if (sd) {
+            const nextSplitKm = Math.floor(lastSplitDistance) + 1;
+            if (sd.distance >= nextSplitKm) {
+                splits.push({ km: nextSplitKm, time: sd.time });
+                lastSplitDistance = nextSplitKm;
+                log(`Split ${nextSplitKm} km at ${formatDuration(sd.time)}`);
+            }
+        }
+
+        // ── UI updates (use session-relative values for display) ───────────────
+        updateMetrics(data, sd);
+        updateGoalProgress(sd);
     }
 
     function parseTreadmillData(dataView) {
@@ -1007,34 +1449,43 @@
 
         } catch (e) { log(`Parse error: ${e.message}`); }
 
-        log(`Parsed: spd=${data.speed.toFixed(1)} dist=${data.distance.toFixed(2)} t=${data.time}s cal=${data.calories}`);
+        log(`Parsed: spd=${data.speed.toFixed(1)} dist=${data.distance.toFixed(3)} t=${data.time}s cal=${data.calories}`);
         return data;
     }
 
-    function updateMetrics(data) {
+    /**
+     * Updates the UI metrics display.
+     * @param {object} data  - raw BLE data (cumulative)
+     * @param {object|null} sd - session-relative data from getSessionData()
+     */
+    function updateMetrics(data, sd) {
         speedEl.textContent = data.speed.toFixed(1);
 
         if (data.speed > 0) {
             const pace = 60 / data.speed;
             const m = Math.floor(pace);
             const s = Math.round((pace - m) * 60);
-            paceEl.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+            paceEl.textContent = `${m}:${s.toString().padStart(2, '00')}`;
         } else {
             paceEl.textContent = '--:--';
         }
 
-        distanceEl.textContent = data.distance.toFixed(2);
+        // Show session-relative distance and time when available, else raw
+        const displayDist = sd ? sd.distance : data.distance;
+        const displayTime = sd ? sd.time     : data.time;
 
-        if (data.time > 0) {
-            const m = Math.floor(data.time / 60);
-            const s = data.time % 60;
+        distanceEl.textContent = displayDist.toFixed(2);
+
+        if (displayTime > 0) {
+            const m = Math.floor(displayTime / 60);
+            const s = displayTime % 60;
             timeEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         }
 
+        const displayCal = sd ? sd.calories : data.calories;
         inclineEl.textContent  = data.incline.toFixed(1);
-        caloriesEl.textContent = data.calories;
+        caloriesEl.textContent = displayCal;
 
-        // Show treadmill-reported HR if no external HR monitor is active
         if (hrBpm === 0 && data.heartRate > 0) {
             updateHRDisplay(data.heartRate);
         }
@@ -1044,13 +1495,15 @@
     function startCoachingTimer() {
         stopCoachingTimer();
         nextCoachCountdown = COACHING_INTERVAL / 1000;
-        provideCoaching(lastData);
+        const sd = getSessionData(lastData);
+        provideCoaching(sd || lastData);
         lastCoachingTime = Date.now();
 
         coachingIntervalId = setInterval(() => {
             nextCoachCountdown--;
             if (nextCoachCountdown <= 0) {
-                provideCoaching(lastData);
+                const sd = getSessionData(lastData);
+                provideCoaching(sd || lastData);
                 lastCoachingTime = Date.now();
                 nextCoachCountdown = COACHING_INTERVAL / 1000;
             } else {
@@ -1082,7 +1535,6 @@
         return `${m}:${s.toString().padStart(2, '0')}/km`;
     }
 
-    // Returns pace analysis when both distance+time goals are set, otherwise null.
     function analyzePace(data) {
         if (!goalDistance || !goalTime) return null;
         const elapsedMin    = data.time / 60;
@@ -1091,19 +1543,23 @@
         if (remainingDist <= 0 || remainingMin <= 0) return null;
         const requiredSpeedKmh  = (remainingDist / remainingMin) * 60;
         const requiredPaceMin   = 60 / requiredSpeedKmh;
-        const speedGap          = requiredSpeedKmh - data.speed; // positive = need to go faster
+        const speedGap          = requiredSpeedKmh - data.speed;
         const projectedTotalMin = data.speed > 0
             ? elapsedMin + (remainingDist / data.speed) * 60
             : null;
         return { requiredSpeedKmh, requiredPaceMin, speedGap, projectedTotalMin };
     }
 
+    /**
+     * Builds a coaching message from session-relative data (or raw data before
+     * session start is captured). All distance/time references here are
+     * session-relative so goals compare against the current session only.
+     */
     function buildCoachMessage(data) {
         const elapsedMin = data.time / 60;
         let emoji = '🎯';
         let lines = [];
 
-        // ── Goal-aware opening ──────────────────────────────────────────────
         if (goalDistance && goalTime) {
             const distPct   = Math.min(100, (data.distance / goalDistance) * 100);
             const timePct   = Math.min(100, (elapsedMin / goalTime) * 100);
@@ -1121,37 +1577,28 @@
                 emoji = '⏱️';
                 lines.push(`Time's up! You covered ${data.distance.toFixed(2)} km — ${remaining > 0 ? remaining.toFixed(2) + ' km short of your goal.' : 'goal complete!'}`);
             } else if (pace) {
-                // ── Situationally-aware pace coaching ──────────────────────
                 const reqSpd     = pace.requiredSpeedKmh;
                 const reqPaceStr = formatPace(pace.requiredPaceMin);
 
                 if (data.speed === 0) {
                     emoji = data.time < 15 ? '🚀' : '⏸️';
                     lines.push(`Need ${reqSpd.toFixed(1)} km/h (${reqPaceStr}) to hit ${goalDistance} km in ${goalTime} min. Get moving!`);
-
                 } else if (pace.speedGap > 2.5) {
-                    // Significantly behind — call it out clearly
                     emoji = '⚠️';
                     const overBy = pace.projectedTotalMin
                         ? ` At this pace you'll finish in ~${pace.projectedTotalMin.toFixed(0)} min — ${(pace.projectedTotalMin - goalTime).toFixed(0)} min over target.`
                         : '';
                     lines.push(`Pace alert! You need ${reqSpd.toFixed(1)} km/h (${reqPaceStr}) but you're only doing ${data.speed.toFixed(1)} km/h.${overBy} Lift the pace by ${pace.speedGap.toFixed(1)} km/h now to stay on course.`);
-
                 } else if (pace.speedGap > 0.5) {
-                    // Moderately behind
                     emoji = '📈';
                     lines.push(`Behind target pace — push to ${reqSpd.toFixed(1)} km/h (${reqPaceStr}). You're at ${data.speed.toFixed(1)} km/h, ${pace.speedGap.toFixed(1)} km/h short. ${remaining.toFixed(2)} km left.`);
-
                 } else if (pace.speedGap < -0.5) {
-                    // Ahead of pace
                     emoji = distPct > 75 ? '💥' : distPct > 50 ? '💪' : '🚀';
                     const progressMsg = distPct > 75 ? 'Home stretch!'
                                       : distPct > 50 ? 'Over halfway!'
                                       : 'Great start!';
                     lines.push(`${progressMsg} You're ${(-pace.speedGap).toFixed(1)} km/h ahead of target pace — excellent! ${goalDistance} km in ${goalTime} min is comfortably within reach.`);
-
                 } else {
-                    // On pace
                     emoji = distPct > 75 ? '💥' : distPct > 50 ? '💪' : distPct > 25 ? '🏃' : '✅';
                     const progressMsg = distPct > 75 ? `Final stretch — ${remaining.toFixed(2)} km to go!`
                                       : distPct > 50 ? `Over halfway! ${remaining.toFixed(2)} km left.`
@@ -1188,7 +1635,6 @@
             }
 
         } else {
-            // No goal — speed-based message
             if (data.speed === 0) {
                 emoji = '⏸️';
                 lines.push("Ready when you are. Set a goal above or jump on and start running!");
@@ -1207,7 +1653,6 @@
             }
         }
 
-        // ── Heart Rate feedback ─────────────────────────────────────────────
         const displayHR = hrBpm > 0 ? hrBpm : (data.heartRate || 0);
         if (displayHR > 0) {
             if      (displayHR < 120) lines.push(`HR ${displayHR} bpm — very easy, plenty left in the tank.`);
@@ -1217,14 +1662,12 @@
             else                      lines.push(`HR ${displayHR} bpm — near max! Ease off if you need to.`);
         }
 
-        // ── Incline bonus ───────────────────────────────────────────────────
         if (data.incline >= 3) {
             lines.push(`${data.incline.toFixed(1)}% incline — serious hill work. Glutes on fire!`);
         } else if (data.incline >= 1) {
             lines.push(`${data.incline.toFixed(1)}% incline — simulating real-road effort.`);
         }
 
-        // ── Distance milestone ──────────────────────────────────────────────
         if (data.distance >= 1 && data.distance % 1 < 0.05) {
             lines.push(`${Math.round(data.distance)} km — every kilometre counts!`);
         }
@@ -1232,39 +1675,60 @@
         return { emoji, message: lines.join(' ') };
     }
 
-    // ── Workout history ────────────────────────────────────────────────────────
-    function saveWorkoutIfValid() {
-        if (!lastData || lastData.distance < 0.05 || lastData.time < 30) return;
-
+    // ── Workout persistence ────────────────────────────────────────────────────
+    /**
+     * Builds the full workout record from session-relative data.
+     * Used by both the Stop modal save path and autoSaveOnDisconnect().
+     */
+    function buildWorkoutRecord(sd) {
         const avgSpeed = sessionSpeedCount > 0
-            ? (sessionSpeedSum / sessionSpeedCount)
-            : lastData.speed;
+            ? parseFloat((sessionSpeedSum / sessionSpeedCount).toFixed(2))
+            : parseFloat(sd.speed.toFixed(2));
 
-        const workout = {
-            date:        new Date().toISOString(),
-            duration:    lastData.time,
-            distance:    lastData.distance,
-            calories:    lastData.calories,
-            avgSpeed:    parseFloat(avgSpeed.toFixed(2)),
-            maxSpeed:    parseFloat(sessionMaxSpeed.toFixed(2)),
-            incline:     parseFloat(lastData.incline.toFixed(1)),
+        return {
+            date:         new Date().toISOString(),
+            duration:     sd.time,
+            distance:     parseFloat(sd.distance.toFixed(3)),
+            calories:     sd.calories,
+            avgSpeed:     avgSpeed,
+            maxSpeed:     parseFloat(sessionMaxSpeed.toFixed(2)),
+            incline:      parseFloat(sd.incline.toFixed(1)),
             goalDistance: goalDistance,
-            goalTime:    goalTime,
-            goalAchieved: checkGoalAchieved(lastData)
+            goalTime:     goalTime,
+            goalAchieved: checkGoalAchieved(sd),
+            speedSamples: speedSamples.slice(),
+            splits:       splits.slice()
         };
+    }
 
+    function persistWorkout(workout) {
         const history = getHistory();
         history.unshift(workout);
         if (history.length > HISTORY_MAX) history.length = HISTORY_MAX;
         localStorage.setItem('runHistory', JSON.stringify(history));
-        log(`Workout saved: ${workout.distance} km, ${formatDuration(workout.duration)}`);
-        renderHistory();
+        log(`Workout saved: ${workout.distance.toFixed(2)} km, ${formatDuration(workout.duration)}`);
     }
 
-    function checkGoalAchieved(data) {
+    /**
+     * Auto-save path: called on Disconnect button or max-reconnect failure.
+     * Uses session-relative data, same full format as modal save.
+     */
+    function autoSaveOnDisconnect() {
+        const sd = getSessionData(lastData);
+        if (!sd || sd.distance < 0.05 || sd.time < 30) {
+            log('Nothing to auto-save (session too short)');
+            return;
+        }
+        const workout = buildWorkoutRecord(sd);
+        persistWorkout(workout);
+        historyFab.classList.remove('hidden');
+        log(`Auto-saved on disconnect: ${sd.distance.toFixed(2)} km, ${formatDuration(sd.time)}`);
+    }
+
+    function checkGoalAchieved(sd) {
         if (!goalDistance && !goalTime) return null;
-        const distOk = !goalDistance || data.distance >= goalDistance * 0.95;
-        const timeOk = !goalTime     || (data.time / 60) >= goalTime * 0.95;
+        const distOk = !goalDistance || sd.distance >= goalDistance * 0.95;
+        const timeOk = !goalTime     || (sd.time / 60) >= goalTime * 0.95;
         return distOk && timeOk ? 'achieved' : 'partial';
     }
 
@@ -1273,43 +1737,35 @@
         catch { return []; }
     }
 
-    function formatDuration(seconds) {
-        const m = Math.floor(seconds / 60);
-        const s = seconds % 60;
-        return `${m}:${s.toString().padStart(2, '0')}`;
-    }
-
-    function formatDate(iso) {
-        try {
-            const d = new Date(iso);
-            return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
-                 + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-        } catch { return iso; }
-    }
-
-    function renderHistory() {
+    // ── History overlay ────────────────────────────────────────────────────────
+    function renderHistoryOverlay() {
         const history = getHistory();
-        const list    = document.getElementById('historyList');
 
         if (history.length === 0) {
-            list.innerHTML = '<div class="history-empty">No runs saved yet — complete a session to see your history.</div>';
-            historyCard.classList.add('active');
+            historyList.innerHTML = '<div class="history-empty">No runs saved yet — complete a session to see your history.</div>';
             return;
         }
 
-        historyCard.classList.add('active');
-        list.innerHTML = history.map(w => {
+        historyList.innerHTML = history.map(w => {
+            // Collision-proof gradient ID using sanitised ISO date string
+            const gradId = `spk-${w.date.replace(/[^a-zA-Z0-9]/g, '')}`;
+
+            const sparklineHtml = renderSparkline(w.speedSamples || [], gradId);
+
             const badgeHtml = w.goalAchieved
                 ? `<span class="history-goal-badge ${w.goalAchieved}">${w.goalAchieved === 'achieved' ? '✓ Goal achieved' : '~ Partial goal'}</span>`
                 : '';
-            const goalLine = (w.goalDistance || w.goalTime)
-                ? `<div style="font-size:0.7em;color:#475569;margin-top:4px;">
-                     Goal: ${[w.goalDistance ? w.goalDistance + ' km' : '', w.goalTime ? w.goalTime + ' min' : ''].filter(Boolean).join(' · ')}
-                   </div>`
+
+            const goalLineHtml = (w.goalDistance || w.goalTime)
+                ? `<div class="history-goal-line">Goal: ${[w.goalDistance ? w.goalDistance + ' km' : '', w.goalTime ? w.goalTime + ' min' : ''].filter(Boolean).join(' · ')}</div>`
                 : '';
+
             return `
             <div class="history-item">
-                <div class="history-date">${formatDate(w.date)}</div>
+                <div class="history-item-header">
+                    <span class="history-date">${formatDate(w.date)}</span>
+                    ${badgeHtml}
+                </div>
                 <div class="history-metrics">
                     <div class="history-stat">
                         <div class="history-stat-val">${w.distance.toFixed(2)}</div>
@@ -1336,13 +1792,66 @@
                         <div class="history-stat-lbl">incline</div>
                     </div>
                 </div>
-                ${goalLine}
-                ${badgeHtml}
+                ${sparklineHtml ? `<div class="history-sparkline">${sparklineHtml}</div>` : ''}
+                ${goalLineHtml}
             </div>`;
         }).join('');
     }
 
+    /**
+     * Renders a polyline sparkline SVG for speed samples.
+     * @param {Array} samples - [[timeSec, speedKmh], ...]
+     * @param {string} gradId - unique gradient element ID
+     */
+    function renderSparkline(samples, gradId) {
+        if (!samples || samples.length < 2) return '';
+
+        const speeds = samples.map(s => s[1]);
+        const minS   = Math.min(...speeds);
+        const maxS   = Math.max(...speeds);
+        const range  = maxS - minS || 1;
+        const W = 280, H = 32, pad = 2;
+
+        const pts = samples.map((s, i) => {
+            const x = pad + (i / (samples.length - 1)) * (W - pad * 2);
+            const y = H - pad - ((s[1] - minS) / range) * (H - pad * 2);
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+
+        // Area fill path: down to bottom-right, across to bottom-left, close
+        const firstX = pad.toFixed(1);
+        const lastX  = (W - pad).toFixed(1);
+        const bottom = (H - pad).toFixed(1);
+        const areaPts = `${pts} ${lastX},${bottom} ${firstX},${bottom}`;
+
+        return `<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+            <defs>
+                <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#00e5ff" stop-opacity="0.25"/>
+                    <stop offset="100%" stop-color="#00e5ff" stop-opacity="0"/>
+                </linearGradient>
+            </defs>
+            <polygon points="${areaPts}" fill="url(#${gradId})"/>
+            <polyline points="${pts}" fill="none" stroke="#00e5ff" stroke-width="1.5"
+                      stroke-linejoin="round" stroke-linecap="round"/>
+        </svg>`;
+    }
+
     // ── Utilities ──────────────────────────────────────────────────────────────
+    function formatDuration(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function formatDate(iso) {
+        try {
+            const d = new Date(iso);
+            return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+                 + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        } catch { return iso; }
+    }
+
     function updateStatus(state, message) {
         statusDiv.className = `status ${state}`;
         statusDiv.textContent = message;
