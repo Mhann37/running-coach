@@ -349,11 +349,12 @@
         }
         .modal-summary {
             display: flex;
+            flex-wrap: wrap;
             gap: 8px;
             margin-bottom: 16px;
         }
         .modal-stat {
-            flex: 1;
+            flex: 1 1 calc(50% - 4px);
             background: #0a0a18;
             border: 1px solid #1e1e38;
             border-radius: 10px;
@@ -511,6 +512,46 @@
             margin-top: 4px;
         }
 
+        /* Personal bests */
+        .pb-empty {
+            font-size: 0.78em;
+            color: #64748b;
+            text-align: center;
+            padding: 10px 0 2px;
+        }
+        .pb-table {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .pb-row {
+            display: grid;
+            grid-template-columns: 60px 1fr 1fr 1fr;
+            gap: 6px;
+            align-items: baseline;
+        }
+        .pb-head {
+            font-size: 0.6em;
+            color: #334155;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+            padding-top: 2px;
+        }
+        .pb-dist {
+            font-weight: 800;
+            color: #a78bfa;
+            font-size: 0.78em;
+        }
+        .pb-val {
+            font-weight: 800;
+            color: #00e5ff;
+            font-size: 0.78em;
+            text-align: right;
+        }
+        .pb-val.missing { color: #475569; }
+
         /* Debug */
         .debug-summary { cursor: pointer; font-size: 0.8em; font-weight: 600; color: #312e81; user-select: none; }
         .debug {
@@ -564,6 +605,14 @@
             <button id="hrConnectBtn" class="btn-connect btn-connect-hr">HR Monitor</button>
             <div id="hrStatus" class="status disconnected">HR Not Connected</div>
         </div>
+    </div>
+
+    <!-- Account -->
+    <div class="card" id="authCard">
+        <div class="card-title">Account</div>
+        <div class="status disconnected" id="authStatus" style="margin-bottom:8px;">Signed out</div>
+        <button id="googleSignInBtn" class="btn-connect" style="width:100%;">Sign in with Google</button>
+        <button id="googleSignOutBtn" class="btn-modal-discard" style="width:100%; display:none;">Sign out</button>
     </div>
 
     <!-- Goal Input Card -->
@@ -688,6 +737,13 @@
         </div>
     </div>
 
+    <!-- Personal Bests -->
+    <div class="card" id="personalBestsCard">
+        <div class="card-title">Personal Bests</div>
+        <div class="pb-empty" id="personalBestsEmpty">No PRs yet. Complete a save to start building your 1–10 km bests.</div>
+        <div class="pb-table hidden" id="personalBestsTable"></div>
+    </div>
+
     <!-- Debug -->
     <div class="card">
         <details>
@@ -715,6 +771,14 @@
                 <span id="stopModalCal">0</span>
                 <small>kcal</small>
             </div>
+            <div class="modal-stat">
+                <span id="stopModalAvgPace">--:--</span>
+                <small>avg pace</small>
+            </div>
+            <div class="modal-stat">
+                <span id="stopModalBest1k">--:--</span>
+                <small>best 1km</small>
+            </div>
         </div>
         <button id="saveRunBtn"    class="btn-modal-save">💾 Save Run</button>
         <button id="discardRunBtn" class="btn-modal-discard">Discard</button>
@@ -729,6 +793,11 @@
     </div>
     <div class="history-scroll" id="historyList"></div>
 </div>
+
+<!-- Firebase SDK (Auth + Firestore) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.3.0/firebase-app-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.3.0/firebase-auth-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.3.0/firebase-firestore-compat.min.js"></script>
 
 <script>
     // ── Constants ──────────────────────────────────────────────────────────────
@@ -760,6 +829,7 @@
     let targetIncline               = 0;
     let manualDisconnect            = false;
     let sessionStopped              = false;  // true after Stop Run modal completes
+    let endRunBusy                 = false;  // prevents double-taps on Save/Discard
     let paused                      = false;
     let reconnectAttempts           = 0;
     let coachingIntervalId          = null;
@@ -767,6 +837,23 @@
     let goalDistance                = null;
     let goalTime                    = null;
     let goalConfirmed               = false;
+
+    // Firebase Auth / Firestore state
+    let authUser      = null;
+    let authEnabled  = false; // true only when Firebase config is filled
+    let firebaseAuth  = null;
+    let firebaseDb    = null;
+
+    // TODO: Fill this with your Firebase project's "Web app" config.
+    // Keep keys out of git; treat this as a local-only placeholder.
+    const FIREBASE_CONFIG = {
+        apiKey: "AIzaSyCeTZWPAZ36HRoTFeOIBGwVEJ-fXbEpgQY",
+        authDomain: "running-coach-ee164.firebaseapp.com",
+        projectId: "running-coach-ee164,
+        storageBucket: "running-coach-ee164.firebasestorage.app",
+        messagingSenderId: "965560733067",
+        appId: "1:965560733067:web:d32cb09a6840188dd8f38e"
+    };
 
     // HR Monitor state
     let hrDevice            = null;
@@ -789,6 +876,8 @@
     let sessionSpeedCount = 0;
     let splits            = [];      // [{ km, time }]
     let lastSplitDistance = 0;       // session-relative km of last recorded split
+    let prevSdDistance    = null;    // previous packet's session-relative distance (km)
+    let prevSdTime        = null;    // previous packet's session-relative time (s)
     let speedSamples      = [];      // [[sessionTimeSec, speedKmh], ...]
     let lastSpeedSampleMs = 0;
 
@@ -849,6 +938,8 @@
     const stopModalDistEl = document.getElementById('stopModalDist');
     const stopModalTimeEl = document.getElementById('stopModalTime');
     const stopModalCalEl  = document.getElementById('stopModalCal');
+    const stopModalAvgPaceEl  = document.getElementById('stopModalAvgPace');
+    const stopModalBest1kEl   = document.getElementById('stopModalBest1k');
     const saveRunBtn      = document.getElementById('saveRunBtn');
     const discardRunBtn   = document.getElementById('discardRunBtn');
 
@@ -856,6 +947,13 @@
     const historyOverlay  = document.getElementById('historyOverlay');
     const closeHistoryBtn = document.getElementById('closeHistoryBtn');
     const historyList     = document.getElementById('historyList');
+    const personalBestsCard      = document.getElementById('personalBestsCard');
+    const personalBestsEmpty     = document.getElementById('personalBestsEmpty');
+    const personalBestsTable     = document.getElementById('personalBestsTable');
+
+    const authStatusEl          = document.getElementById('authStatus');
+    const googleSignInBtn      = document.getElementById('googleSignInBtn');
+    const googleSignOutBtn     = document.getElementById('googleSignOutBtn');
 
     // ── Init ───────────────────────────────────────────────────────────────────
     if (!navigator.bluetooth) {
@@ -867,7 +965,30 @@
     // Show history FAB if there are saved runs
     if (getHistory().length > 0) historyFab.classList.remove('hidden');
 
+    // Initial PR visibility + Firebase initialization.
+    refreshPersonalBestsVisibility();
+    initFirebaseAuth();
+
     // ── Event listeners ────────────────────────────────────────────────────────
+    googleSignInBtn.addEventListener('click', async () => {
+        if (!authEnabled || !firebaseAuth) return;
+        try {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            await firebaseAuth.signInWithRedirect(provider);
+        } catch (e) {
+            log(`Google sign-in error: ${e.message}`);
+        }
+    });
+
+    googleSignOutBtn.addEventListener('click', async () => {
+        if (!authEnabled || !firebaseAuth) return;
+        try {
+            await firebaseAuth.signOut();
+        } catch (e) {
+            log(`Google sign-out error: ${e.message}`);
+        }
+    });
+
     connectBtn.addEventListener('click', async () => {
         if (device && device.gatt.connected) {
             manualDisconnect = true;
@@ -921,6 +1042,9 @@
 
     // Stop modal actions
     saveRunBtn.addEventListener('click', () => {
+        if (endRunBusy) return;
+        endRunBusy = true;
+
         const sd = getSessionData(lastData);
         if (sd) {
             const workout = buildWorkoutRecord(sd);
@@ -929,12 +1053,16 @@
         }
         stopModal.classList.remove('active');
         finishSession();
+        endRunBusy = false;
     });
 
     discardRunBtn.addEventListener('click', () => {
+        if (endRunBusy) return;
+        endRunBusy = true;
         stopModal.classList.remove('active');
         finishSession();
         log('Run discarded');
+        endRunBusy = false;
     });
 
     // History overlay
@@ -969,6 +1097,161 @@
         }
     });
 
+    // ── Firebase Auth helpers ────────────────────────────────────────────────
+    function isUserSignedIn() {
+        // If Firebase isn't configured, we keep existing local behaviour.
+        return !authEnabled || !!authUser;
+    }
+
+    function refreshPersonalBestsVisibility() {
+        if (!authEnabled) {
+            renderPersonalBestsUI(getPersonalBests());
+            return;
+        }
+
+        if (!authUser) {
+            personalBestsEmpty.textContent = 'Sign in with Google to sync Personal Bests (PRs).';
+            personalBestsEmpty.classList.remove('hidden');
+            personalBestsTable.classList.add('hidden');
+            personalBestsTable.innerHTML = '';
+            return;
+        }
+
+        renderPersonalBestsUI(getPersonalBests());
+    }
+
+    function updateAuthUI() {
+        if (!authEnabled) {
+            if (authStatusEl) {
+                authStatusEl.textContent = 'Firebase not configured';
+                authStatusEl.className = 'status disconnected';
+            }
+            if (googleSignInBtn) {
+                googleSignInBtn.disabled = true;
+                googleSignInBtn.style.opacity = 0.55;
+            }
+            if (googleSignOutBtn) googleSignOutBtn.style.display = 'none';
+            return;
+        }
+
+        const signedIn = !!authUser;
+        if (authStatusEl) {
+            if (signedIn) {
+                authStatusEl.textContent = `Signed in: ${authUser.displayName || authUser.email || 'Google'}`;
+                authStatusEl.className = 'status connected';
+            } else {
+                authStatusEl.textContent = 'Signed out';
+                authStatusEl.className = 'status disconnected';
+            }
+        }
+
+        if (googleSignInBtn) {
+            googleSignInBtn.disabled = signedIn;
+            googleSignInBtn.style.opacity = signedIn ? 0.6 : 1;
+        }
+        if (googleSignOutBtn) googleSignOutBtn.style.display = signedIn ? '' : 'none';
+    }
+
+    function isFirebaseConfigured() {
+        return FIREBASE_CONFIG &&
+            FIREBASE_CONFIG.apiKey &&
+            !String(FIREBASE_CONFIG.apiKey).startsWith('YOUR_');
+    }
+
+    async function initFirebaseAuth() {
+        try {
+            if (typeof firebase === 'undefined') {
+                authEnabled = false;
+                updateAuthUI();
+                return;
+            }
+
+            if (!isFirebaseConfigured()) {
+                authEnabled = false;
+                updateAuthUI();
+                return;
+            }
+
+            if (!firebase.apps || firebase.apps.length === 0) {
+                firebase.initializeApp(FIREBASE_CONFIG);
+            }
+
+            firebaseAuth = firebase.auth();
+            firebaseDb = firebase.firestore();
+            authEnabled = true;
+
+            updateAuthUI();
+            // Handle any pending redirect sign-in result.
+            firebaseAuth.getRedirectResult().catch(() => {});
+
+            firebaseAuth.onAuthStateChanged(user => {
+                authUser = user || null;
+                updateAuthUI();
+                if (authUser) {
+                    syncUserDataFromFirestore(authUser.uid).catch(e => log(`PR sync error: ${e.message}`));
+                }
+                refreshPersonalBestsVisibility();
+            });
+        } catch (e) {
+            authEnabled = false;
+            log(`Firebase init error: ${e.message}`);
+            updateAuthUI();
+        }
+    }
+
+    // ── Firestore sync (runs + PRs) ──────────────────────────────────────────
+    async function syncUserDataFromFirestore(uid) {
+        if (!firebaseDb || !uid) return;
+        await Promise.all([
+            loadPersonalBestsFromFirestore(uid),
+            loadRunsFromFirestore(uid)
+        ]);
+    }
+
+    async function loadPersonalBestsFromFirestore(uid) {
+        if (!firebaseDb || !uid) return {};
+        const pb = {};
+
+        const snap = await firebaseDb.collection('users').doc(uid).collection('pr').get();
+        snap.forEach(doc => {
+            const km = parseInt(doc.id, 10);
+            if (!(km >= 1 && km <= 10)) return;
+            const d = doc.data() || {};
+            pb[String(km)] = {
+                bestTimeSec: isFinite(d.bestTimeSec) ? d.bestTimeSec : undefined,
+                bestAvgPaceMinPerKm: isFinite(d.bestAvgPaceMinPerKm) ? d.bestAvgPaceMinPerKm : undefined,
+                best1kPaceMinPerKm: isFinite(d.best1kPaceMinPerKm) ? d.best1kPaceMinPerKm : undefined
+            };
+        });
+
+        localStorage.setItem(`personalBests:${uid}`, JSON.stringify(pb));
+        // Only rerender if PR is currently allowed to show.
+        refreshPersonalBestsVisibility();
+        return pb;
+    }
+
+    async function loadRunsFromFirestore(uid) {
+        if (!firebaseDb || !uid) return [];
+
+        const runsRef = firebaseDb
+            .collection('users').doc(uid)
+            .collection('runs')
+            .orderBy('date', 'desc')
+            .limit(HISTORY_MAX);
+
+        const snap = await runsRef.get();
+        const runs = snap.docs.map(d => d.data());
+
+        localStorage.setItem(`runHistory:${uid}`, JSON.stringify(runs));
+
+        // Update History FAB + overlay content when available.
+        historyFab.classList.toggle('hidden', runs.length === 0);
+        if (historyOverlay.classList.contains('active')) {
+            renderHistoryOverlay();
+        }
+        return runs;
+    }
+
     // ── Session-relative helpers ───────────────────────────────────────────────
     /**
      * Returns session-relative metrics derived from raw cumulative BLE data.
@@ -995,6 +1278,8 @@
         sessionSpeedCount = 0;
         splits            = [];
         lastSplitDistance = 0;
+        prevSdDistance    = null;
+        prevSdTime        = null;
         speedSamples      = [];
         lastSpeedSampleMs = 0;
         paused            = false;
@@ -1067,6 +1352,19 @@
         stopModalDistEl.textContent = sd.distance.toFixed(2);
         stopModalTimeEl.textContent = formatDuration(sd.time);
         stopModalCalEl.textContent  = sd.calories;
+
+        // Derived Strava-like stats for the end-of-run summary.
+        const preview = buildWorkoutRecord(sd);
+        const avgPaceStr = Number.isFinite(preview.avgPaceMinPerKm)
+            ? formatPace(preview.avgPaceMinPerKm).replace('/km', '')
+            : '--:--';
+        const best1kStr = Number.isFinite(preview.best1kPaceMinPerKm)
+            ? formatPace(preview.best1kPaceMinPerKm).replace('/km', '')
+            : '--:--';
+
+        stopModalAvgPaceEl.textContent = avgPaceStr;
+        stopModalBest1kEl.textContent = best1kStr;
+
         stopModal.classList.add('active');
         // Stop coaching while modal is open
         stopCoachingTimer();
@@ -1077,6 +1375,7 @@
      * BLE stays connected — user can start a new session immediately.
      */
     function finishSession() {
+        endRunBusy = false;
         sessionStopped = false;
         stopCoachingTimer();
         resetSessionState();
@@ -1177,9 +1476,10 @@
         }
 
         if (manualDisconnect) {
-            // User tapped Disconnect button — auto-save then tear down UI
-            autoSaveOnDisconnect();
-            resetUI();
+            // User tapped Disconnect button — treat it like ending the run.
+            // Show the Save/Discard modal (same as Stop Run) instead of silently auto-saving.
+            stopSession();
+            resetUI(false); // Keep stop modal open while user decides.
             manualDisconnect = false;
             return;
         }
@@ -1217,7 +1517,7 @@
         }
     }
 
-    function resetUI() {
+    function resetUI(closeStopModal = true) {
         metricsCard.classList.add('hidden');
         coachingCard.classList.remove('active');
         controlsCard.classList.remove('active');
@@ -1227,8 +1527,8 @@
         enableControls(false);
         controlPointCharacteristic = null;
         updateStatus('disconnected', 'Disconnected');
-        // Close stop modal if open
-        stopModal.classList.remove('active');
+        // Close stop modal if open (except when we intentionally keep it open).
+        if (closeStopModal) stopModal.classList.remove('active');
     }
 
     function enableControls(on) {
@@ -1398,12 +1698,39 @@
 
         // ── Per-km split tracking ──────────────────────────────────────────────
         if (sd) {
-            const nextSplitKm = Math.floor(lastSplitDistance) + 1;
-            if (sd.distance >= nextSplitKm) {
-                splits.push({ km: nextSplitKm, time: sd.time });
-                lastSplitDistance = nextSplitKm;
-                log(`Split ${nextSplitKm} km at ${formatDuration(sd.time)}`);
+            const currDist = sd.distance;
+            const currTime = sd.time;
+
+            // Interpolate exact crossing times for each whole-km boundary.
+            // We use linear interpolation between the previous packet and the current packet.
+            if (prevSdDistance !== null && prevSdTime !== null && currDist > prevSdDistance) {
+                const prevDist = prevSdDistance;
+                const prevTime = prevSdTime;
+
+                let nextSplitKm = Math.floor(lastSplitDistance) + 1;
+                const endKm = Math.floor(currDist);
+
+                while (nextSplitKm <= endKm) {
+                    // Only interpolate if that km boundary is within (prevDist, currDist].
+                    if (nextSplitKm <= prevDist) {
+                        nextSplitKm++;
+                        continue;
+                    }
+                    if (nextSplitKm > currDist) break;
+
+                    const ratio = (nextSplitKm - prevDist) / (currDist - prevDist);
+                    const crossTime = prevTime + ratio * (currTime - prevTime);
+
+                    splits.push({ km: nextSplitKm, time: crossTime });
+                    lastSplitDistance = nextSplitKm;
+
+                    log(`Split ${nextSplitKm} km at ${formatDuration(crossTime)}`);
+                    nextSplitKm++;
+                }
             }
+
+            prevSdDistance = currDist;
+            prevSdTime = currTime;
         }
 
         // ── UI updates (use session-relative values for display) ───────────────
@@ -1681,6 +2008,50 @@
      * Used by both the Stop modal save path and autoSaveOnDisconnect().
      */
     function buildWorkoutRecord(sd) {
+        const distanceKm = sd.distance;
+        const durationSec = sd.time;
+
+        // Overall pace: Strava-style "min/km" from total distance + total time.
+        const avgPaceMinPerKm = distanceKm > 0
+            ? (durationSec / 60) / distanceKm
+            : null;
+
+        // Enrich interpolated whole-km crossings into per-1km segment splits.
+        // splits[] holds cumulative crossing times at each whole-km boundary.
+        const crossings = (splits || [])
+            .slice()
+            .sort((a, b) => a.km - b.km);
+
+        let prevCrossTimeSec = 0;
+        let best1kPaceMinPerKm = null;
+        const kmSplits = [];
+
+        for (const c of crossings) {
+            const km = c.km;
+            const crossTimeSec = c.time;
+            const segmentTimeSec = crossTimeSec - prevCrossTimeSec;
+
+            // Guard against any weird non-monotonic readings.
+            if (!(segmentTimeSec > 0) || !(km > 0)) {
+                prevCrossTimeSec = crossTimeSec;
+                continue;
+            }
+
+            const splitPaceMinPerKm = segmentTimeSec / 60; // 1 km segment
+            best1kPaceMinPerKm = best1kPaceMinPerKm === null
+                ? splitPaceMinPerKm
+                : Math.min(best1kPaceMinPerKm, splitPaceMinPerKm);
+
+            kmSplits.push({
+                km,
+                time: crossTimeSec,              // cumulative time at this km (s)
+                segmentTimeSec,                // time to run the 1km segment (s)
+                splitPaceMinPerKm              // 1km pace (min/km)
+            });
+
+            prevCrossTimeSec = crossTimeSec;
+        }
+
         const avgSpeed = sessionSpeedCount > 0
             ? parseFloat((sessionSpeedSum / sessionSpeedCount).toFixed(2))
             : parseFloat(sd.speed.toFixed(2));
@@ -1691,21 +2062,47 @@
             distance:     parseFloat(sd.distance.toFixed(3)),
             calories:     sd.calories,
             avgSpeed:     avgSpeed,
+            avgPaceMinPerKm: avgPaceMinPerKm,
+            best1kPaceMinPerKm,
             maxSpeed:     parseFloat(sessionMaxSpeed.toFixed(2)),
             incline:      parseFloat(sd.incline.toFixed(1)),
             goalDistance: goalDistance,
             goalTime:     goalTime,
             goalAchieved: checkGoalAchieved(sd),
             speedSamples: speedSamples.slice(),
-            splits:       splits.slice()
+            splits:       kmSplits
         };
+    }
+
+    async function persistWorkoutToFirestore(workout) {
+        if (!authEnabled || !authUser || !firebaseDb || !workout) return;
+
+        const uid = authUser.uid;
+        const safeDatePart = String(workout.date || '').replace(/[^0-9a-zA-Z]/g, '');
+        const runId = `run_${safeDatePart}_${Math.random().toString(16).slice(2)}`;
+
+        // Save the full workout record (including splits + derived metrics).
+        await firebaseDb
+            .collection('users').doc(uid)
+            .collection('runs').doc(runId)
+            .set({ ...workout, runId }, { merge: false });
     }
 
     function persistWorkout(workout) {
         const history = getHistory();
         history.unshift(workout);
         if (history.length > HISTORY_MAX) history.length = HISTORY_MAX;
-        localStorage.setItem('runHistory', JSON.stringify(history));
+        localStorage.setItem(getRunHistoryCacheKey(), JSON.stringify(history));
+
+        // Update personal bests (1–10km) whenever we successfully save a run.
+        if (isUserSignedIn()) updatePersonalBestsFromWorkout(workout);
+
+        // Also persist the run to Firestore for per-user history.
+        // Fire-and-forget: persistence failures shouldn't block local saving.
+        if (authEnabled && authUser && firebaseDb) {
+            persistWorkoutToFirestore(workout).catch(e => log(`Run save failed: ${e.message}`));
+        }
+
         log(`Workout saved: ${workout.distance.toFixed(2)} km, ${formatDuration(workout.duration)}`);
     }
 
@@ -1733,8 +2130,135 @@
     }
 
     function getHistory() {
-        try { return JSON.parse(localStorage.getItem('runHistory') || '[]'); }
+        try { return JSON.parse(localStorage.getItem(getRunHistoryCacheKey()) || '[]'); }
         catch { return []; }
+    }
+
+    function getRunHistoryCacheKey() {
+        return (authEnabled && authUser) ? `runHistory:${authUser.uid}` : 'runHistory:guest';
+    }
+
+    // ── Personal bests (1–10 km) ──────────────────────────────────────────
+    /**
+     * localStorage format (temporary, pre-OAuth):
+     * {
+     *   "1":  { bestTimeSec: number, bestAvgPaceMinPerKm: number, best1kPaceMinPerKm: number },
+     *   ...
+     *   "10": { ... }
+     * }
+     */
+    function getPersonalBests() {
+        try { return JSON.parse(localStorage.getItem(getPersonalBestsCacheKey()) || '{}'); }
+        catch { return {}; }
+    }
+
+    function getPersonalBestsCacheKey() {
+        return (authEnabled && authUser) ? `personalBests:${authUser.uid}` : 'personalBests:guest';
+    }
+
+    function renderPersonalBestsUI(personalBests) {
+        const pb = personalBests || {};
+        let hasAny = false;
+
+        let tableHtml = `
+            <div class="pb-row pb-head">
+                <div>KM</div>
+                <div>BEST TIME</div>
+                <div>AVG PACE</div>
+                <div>BEST 1K</div>
+            </div>
+        `;
+
+        for (let d = 1; d <= 10; d++) {
+            const row = pb[d] || pb[String(d)];
+            const timeSec = row && row.bestTimeSec;
+            const avgPace  = row && row.bestAvgPaceMinPerKm;
+            const best1k   = row && row.best1kPaceMinPerKm;
+
+            const timeStr = (typeof timeSec === 'number' && isFinite(timeSec))
+                ? formatDuration(Math.round(timeSec))
+                : '--:--';
+            const avgPaceStr = (typeof avgPace === 'number' && isFinite(avgPace))
+                ? formatPace(avgPace)
+                : '--:--/km';
+            const best1kStr = (typeof best1k === 'number' && isFinite(best1k))
+                ? formatPace(best1k)
+                : '--:--/km';
+
+            if (timeSec || avgPace || best1k) hasAny = true;
+
+            const missingClass = timeSec ? '' : 'missing';
+            tableHtml += `
+                <div class="pb-row">
+                    <div class="pb-dist">${d}km</div>
+                    <div class="pb-val ${missingClass}">${timeStr}</div>
+                    <div class="pb-val ${avgPace ? '' : 'missing'}">${avgPaceStr}</div>
+                    <div class="pb-val ${best1k ? '' : 'missing'}">${best1kStr}</div>
+                </div>
+            `;
+        }
+
+        personalBestsEmpty.classList.toggle('hidden', hasAny);
+        personalBestsTable.classList.toggle('hidden', !hasAny);
+        personalBestsTable.innerHTML = hasAny ? tableHtml : '';
+    }
+
+    function updatePersonalBestsFromWorkout(workout) {
+        if (!workout || !Array.isArray(workout.splits) || workout.splits.length === 0) return;
+
+        // Bucket rule: floor distance to the nearest whole km, clamped to [1..10].
+        const lastSplit = workout.splits[workout.splits.length - 1];
+        const lastCrossKm = (lastSplit && isFinite(lastSplit.km)) ? Math.floor(lastSplit.km) : 0;
+
+        let bucketKm = Math.min(10, lastCrossKm);
+        if (bucketKm < 1) return;
+
+        const splitAtBucket = workout.splits.find(s => s.km === bucketKm);
+        if (!splitAtBucket || !isFinite(splitAtBucket.time)) return;
+
+        const timeAtBucketSec = splitAtBucket.time;
+        const avgPaceMinPerKm  = (timeAtBucketSec / 60) / bucketKm;
+
+        // "Highest 1km pace" interpreted as fastest 1km segment => smallest min/km.
+        let best1kPaceMinPerKm = null;
+        for (const s of workout.splits) {
+            if (!s || !isFinite(s.km) || s.km > bucketKm) break;
+            if (!isFinite(s.splitPaceMinPerKm)) continue;
+            best1kPaceMinPerKm = best1kPaceMinPerKm === null
+                ? s.splitPaceMinPerKm
+                : Math.min(best1kPaceMinPerKm, s.splitPaceMinPerKm);
+        }
+
+        const pb = getPersonalBests();
+        const key = String(bucketKm);
+        const existing = pb[key] || {};
+
+        const next = { ...existing };
+        if (!isFinite(existing.bestTimeSec) || timeAtBucketSec < existing.bestTimeSec) {
+            next.bestTimeSec = timeAtBucketSec;
+        }
+        if (!isFinite(existing.bestAvgPaceMinPerKm) || avgPaceMinPerKm < existing.bestAvgPaceMinPerKm) {
+            next.bestAvgPaceMinPerKm = avgPaceMinPerKm;
+        }
+        if (best1kPaceMinPerKm !== null &&
+            (!isFinite(existing.best1kPaceMinPerKm) || best1kPaceMinPerKm < existing.best1kPaceMinPerKm)) {
+            next.best1kPaceMinPerKm = best1kPaceMinPerKm;
+        }
+
+        pb[key] = next;
+        localStorage.setItem(getPersonalBestsCacheKey(), JSON.stringify(pb));
+
+        // Persist PR improvements to Firestore (per-user).
+        if (authEnabled && authUser && firebaseDb) {
+            const prPayload = JSON.parse(JSON.stringify(next)); // drops undefined keys
+            firebaseDb
+                .collection('users').doc(authUser.uid)
+                .collection('pr').doc(key)
+                .set(prPayload, { merge: true })
+                .catch(e => log(`PR save failed: ${e.message}`));
+        }
+
+        renderPersonalBestsUI(pb);
     }
 
     // ── History overlay ────────────────────────────────────────────────────────
@@ -1791,6 +2315,14 @@
                         <div class="history-stat-val">${w.incline.toFixed(1)}%</div>
                         <div class="history-stat-lbl">incline</div>
                     </div>
+                    <div class="history-stat">
+                        <div class="history-stat-val">${Number.isFinite(w.avgPaceMinPerKm) ? formatPace(w.avgPaceMinPerKm) : '--:--/km'}</div>
+                        <div class="history-stat-lbl">avg pace</div>
+                    </div>
+                    <div class="history-stat">
+                        <div class="history-stat-val">${Number.isFinite(w.best1kPaceMinPerKm) ? formatPace(w.best1kPaceMinPerKm) : '--:--/km'}</div>
+                        <div class="history-stat-lbl">best 1km</div>
+                    </div>
                 </div>
                 ${sparklineHtml ? `<div class="history-sparkline">${sparklineHtml}</div>` : ''}
                 ${goalLineHtml}
@@ -1839,8 +2371,9 @@
 
     // ── Utilities ──────────────────────────────────────────────────────────────
     function formatDuration(seconds) {
-        const m = Math.floor(seconds / 60);
-        const s = seconds % 60;
+        const rounded = Math.max(0, Math.round(seconds));
+        const m = Math.floor(rounded / 60);
+        const s = rounded % 60;
         return `${m}:${s.toString().padStart(2, '0')}`;
     }
 
