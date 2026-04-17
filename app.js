@@ -36,10 +36,71 @@
     let goalTime                    = null;
     let goalConfirmed               = false;
 
-    // Session mode: 'free' | 'goal' | 'workout'. Workout mode is reserved for Section 2.
+    // Session mode: 'free' | 'goal' | 'workout'.
     let sessionMode                 = 'free';
     // App state: 'prerun' | 'active' | 'postrun'.
     let appState                    = 'prerun';
+
+    // ── Workout engine ──────────────────────────────────────────────────
+    // Built-in treadmill-first presets. Blocks are time-first; targets
+    // are optional and only shown/used when defined.
+    const WORKOUT_PRESETS = {
+        easyProgression: {
+            id: 'easyProgression',
+            name: 'Easy Progression',
+            desc: '20 min progressive build + short cool down',
+            blocks: [
+                { kind: 'warmup',   label: 'Warm-up',   durationSec: 300, targetSpeedMin: 6,    targetSpeedMax: 8 },
+                { kind: 'work',     label: 'Easy',      durationSec: 300, targetSpeedMin: 8,    targetSpeedMax: 10 },
+                { kind: 'work',     label: 'Steady',    durationSec: 300, targetSpeedMin: 10,   targetSpeedMax: 12 },
+                { kind: 'work',     label: 'Strong',    durationSec: 180, targetSpeedMin: 12,   targetSpeedMax: 13.5 },
+                { kind: 'cooldown', label: 'Cool down', durationSec: 120, targetSpeedMin: 5,    targetSpeedMax: 7 }
+            ]
+        },
+        tempoBlocks: {
+            id: 'tempoBlocks',
+            name: 'Tempo Blocks',
+            desc: '3 × 6 min tempo with 2 min easy',
+            blocks: [
+                { kind: 'warmup',   label: 'Warm-up',   durationSec: 300, targetSpeedMin: 7,  targetSpeedMax: 9 },
+                { kind: 'work',     label: 'Tempo 1',   durationSec: 360, targetSpeedMin: 12, targetSpeedMax: 13.5, targetHrZoneMin: 140, targetHrZoneMax: 160 },
+                { kind: 'recovery', label: 'Recovery',  durationSec: 120, targetSpeedMin: 7,  targetSpeedMax: 8.5 },
+                { kind: 'work',     label: 'Tempo 2',   durationSec: 360, targetSpeedMin: 12, targetSpeedMax: 13.5, targetHrZoneMin: 140, targetHrZoneMax: 160 },
+                { kind: 'recovery', label: 'Recovery',  durationSec: 120, targetSpeedMin: 7,  targetSpeedMax: 8.5 },
+                { kind: 'work',     label: 'Tempo 3',   durationSec: 360, targetSpeedMin: 12, targetSpeedMax: 13.5, targetHrZoneMin: 140, targetHrZoneMax: 160 },
+                { kind: 'cooldown', label: 'Cool down', durationSec: 300, targetSpeedMin: 6,  targetSpeedMax: 8 }
+            ]
+        },
+        sixOneMin: {
+            id: 'sixOneMin',
+            name: '6 × 1 min Intervals',
+            desc: '6 × (1 min hard / 1 min easy) + warmup / cool',
+            blocks: (function buildIntervals() {
+                const arr = [{ kind: 'warmup', label: 'Warm-up', durationSec: 300, targetSpeedMin: 7, targetSpeedMax: 9 }];
+                for (let i = 1; i <= 6; i++) {
+                    arr.push({ kind: 'work',     label: `Interval ${i}`, durationSec: 60, targetSpeedMin: 14, targetSpeedMax: 16 });
+                    arr.push({ kind: 'recovery', label: 'Recovery',      durationSec: 60, targetSpeedMin: 6,  targetSpeedMax: 8 });
+                }
+                arr.push({ kind: 'cooldown', label: 'Cool down', durationSec: 300, targetSpeedMin: 5, targetSpeedMax: 7 });
+                return arr;
+            })()
+        }
+    };
+
+    let selectedWorkoutId    = null;
+    let activeWorkout        = null;   // { id, name, blocks } when running
+    let workoutBlockIdx      = 0;
+    let workoutCompleted     = false;
+
+    // Coaching mode: 'quiet' | 'spoken' | 'haptic'. Persisted in localStorage.
+    let coachingMode         = (localStorage.getItem('coachingMode') || 'spoken');
+
+    // Sparse coach event debounce state
+    let lastBlockIdxAnnounced = -1;
+    let lastHrZoneAnnounced   = null;
+    let driftSinceMs          = 0;     // wall-clock ms at which drift began
+    let lastDriftAnnounceMs   = 0;     // wall-clock ms of last drift speech
+    let goalCompleteAnnounced = false;
 
     // Firebase Auth / Firestore state
     let authUser      = null;
@@ -129,6 +190,23 @@
     const capabilitySummary  = document.getElementById('capabilitySummary');
     const capListEl          = document.getElementById('capList');
     const ctaHintEl          = document.getElementById('ctaHint');
+    const workoutPickerEl    = document.getElementById('workoutPicker');
+
+    // Active-run Section 2 refs
+    const sessionModeBadge   = document.getElementById('sessionModeBadge');
+    const workoutPanelEl     = document.getElementById('workoutPanel');
+    const wpCurrentBlockEl   = document.getElementById('wpCurrentBlock');
+    const wpCountdownEl      = document.getElementById('wpCountdown');
+    const wpNextBlockEl      = document.getElementById('wpNextBlock');
+    const wpProgressFillEl   = document.getElementById('wpProgressFill');
+    const targetBandEl       = document.getElementById('targetBand');
+    const tbRangeEl          = document.getElementById('tbRange');
+    const tbStatusEl         = document.getElementById('tbStatus');
+    const paceTargetsEl      = document.getElementById('paceTargets');
+    const ptRequiredEl       = document.getElementById('ptRequired');
+    const ptCurrentEl        = document.getElementById('ptCurrent');
+    const ptGapEl            = document.getElementById('ptGap');
+    const coachingModeSel    = document.getElementById('coachingModeSel');
 
     const hrConnectBtn   = document.getElementById('hrConnectBtn');
     const hrStatusDiv    = document.getElementById('hrStatus');
@@ -191,6 +269,8 @@
     initFirebaseAuth();
 
     // Initial chip + CTA + state rendering (pre-run, disconnected).
+    setCoachingMode(coachingMode);
+    renderWorkoutPicker();
     setSessionMode('free');
     setAppState('prerun');
     renderStatusChips();
@@ -237,9 +317,25 @@
     hrChip.addEventListener('click', () => hrConnectBtn.click());
 
     // Session mode selector
-    modeFreeBtn.addEventListener('click', () => setSessionMode('free'));
-    modeGoalBtn.addEventListener('click', () => setSessionMode('goal'));
-    // Workout mode is reserved for a later pass — button stays disabled.
+    modeFreeBtn.addEventListener('click',    () => setSessionMode('free'));
+    modeGoalBtn.addEventListener('click',    () => setSessionMode('goal'));
+    modeWorkoutBtn.addEventListener('click', () => setSessionMode('workout'));
+
+    // Workout preset click delegation (rendered dynamically)
+    workoutPickerEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-preset-workout');
+        if (!btn) return;
+        selectedWorkoutId = btn.dataset.wid;
+        renderWorkoutPicker();
+        updatePrimaryCTA();
+    });
+
+    // Coaching mode selector
+    coachingModeSel.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-cmode');
+        if (!btn) return;
+        setCoachingMode(btn.dataset.cmode);
+    });
 
     speedUpBtn.addEventListener('click',    () => adjustSpeed(SPEED_STEP));
     speedDownBtn.addEventListener('click',  () => adjustSpeed(-SPEED_STEP));
@@ -279,6 +375,7 @@
             startCoachingTimer();
             log('Session resumed');
         }
+        renderSessionModeBadge();
     });
 
     // Stop Run
@@ -527,6 +624,14 @@
         paused            = false;
         pauseBtn.textContent = 'Pause';
         pauseBtn.classList.remove('paused');
+        // Workout + coaching debounce resets
+        workoutBlockIdx       = 0;
+        workoutCompleted      = false;
+        lastBlockIdxAnnounced = -1;
+        lastHrZoneAnnounced   = null;
+        driftSinceMs          = 0;
+        lastDriftAnnounceMs   = 0;
+        goalCompleteAnnounced = false;
     }
 
     // ── Goal logic ─────────────────────────────────────────────────────────────
@@ -541,14 +646,32 @@
             goalDistance = null;
             goalTime     = null;
         }
+
+        // Initialise workout engine if in workout mode.
+        if (sessionMode === 'workout') {
+            if (!selectedWorkoutId || !WORKOUT_PRESETS[selectedWorkoutId]) return;
+            const preset = WORKOUT_PRESETS[selectedWorkoutId];
+            activeWorkout = { id: preset.id, name: preset.name, blocks: preset.blocks };
+            workoutBlockIdx = 0;
+            workoutCompleted = false;
+            lastBlockIdxAnnounced = -1;
+        } else {
+            activeWorkout = null;
+        }
+
         goalConfirmed = true;
 
         let parts = [];
         if (goalDistance) parts.push(`${goalDistance} km`);
         if (goalTime)     parts.push(`${goalTime} min`);
-        const summaryStr = (sessionMode === 'goal' && parts.length)
-            ? `🎯 Goal: ${parts.join(' · ')}`
-            : '🏃 Free Run — no target';
+        let summaryStr;
+        if (sessionMode === 'workout' && activeWorkout) {
+            summaryStr = `🏋 Workout: ${activeWorkout.name}`;
+        } else if (sessionMode === 'goal' && parts.length) {
+            summaryStr = `🎯 Goal: ${parts.join(' · ')}`;
+        } else {
+            summaryStr = '🏃 Free Run — no target';
+        }
 
         goalSummaryText.textContent = summaryStr;
         goalSummary.classList.add('active');
@@ -563,7 +686,12 @@
         sessionControlsEl.classList.add('active');
         setAppState('active');
 
-        log(`Session started — mode: ${sessionMode}, distance: ${goalDistance} km, time: ${goalTime} min`);
+        renderSessionModeBadge();
+        renderWorkoutPanel(null);
+        renderTargetBand(null);
+        renderPaceTargets(null);
+
+        log(`Session started — mode: ${sessionMode}, distance: ${goalDistance} km, time: ${goalTime} min, workout: ${activeWorkout?.name || '-'}`);
 
         // Restart coaching timer (may have been stopped by finishSession)
         startCoachingTimer();
@@ -653,6 +781,11 @@
         metricsCard.classList.add('hidden');
         coachingCard.classList.remove('active');
         sessionControlsEl.classList.remove('active');
+        // Clear active-run-only panels
+        activeWorkout = null;
+        if (workoutPanelEl) workoutPanelEl.classList.add('hidden');
+        if (targetBandEl)   targetBandEl.classList.add('hidden');
+        if (paceTargetsEl)  paceTargetsEl.classList.add('hidden');
 
         // Set idle coaching message (no timer restart — waits for next goal confirm)
         coachingMessageEl.innerHTML =
@@ -851,6 +984,15 @@
         hrZoneLabelEl.className = `hr-zone ${zoneClass}`;
         hrZoneLabelEl.textContent = zoneText;
         hrMetricWrap.classList.remove('hidden');
+
+        // Sparse coach event on HR zone transitions while actively running.
+        if (appState === 'active' && lastHrZoneAnnounced !== zoneText) {
+            // Don't announce the very first zone readout.
+            if (lastHrZoneAnnounced !== null) {
+                fireCoachEvent('hr-zone', `Heart rate ${zoneText} zone, ${bpm} BPM.`, 100);
+            }
+            lastHrZoneAnnounced = zoneText;
+        }
     }
 
     async function handleHRDisconnection() {
@@ -1005,9 +1147,197 @@
             prevSdTime = currTime;
         }
 
+        // ── Workout engine tick & active-run panels ────────────────────────────
+        tickWorkout(sd);
+        renderWorkoutPanel(sd);
+        renderTargetBand(sd);
+        renderPaceTargets(sd);
+        checkDriftEvent(sd);
+        checkGoalCompleteEvent(sd);
+
         // ── UI updates (use session-relative values for display) ───────────────
         updateMetrics(data, sd);
         updateGoalProgress(sd);
+    }
+
+    // ── Workout engine ────────────────────────────────────────────────────────
+    function tickWorkout(sd) {
+        if (!activeWorkout || !sd) return;
+        const elapsed = sd.time;
+        let acc = 0, idx = 0;
+        for (; idx < activeWorkout.blocks.length; idx++) {
+            acc += activeWorkout.blocks[idx].durationSec;
+            if (elapsed < acc) break;
+        }
+        if (idx >= activeWorkout.blocks.length) {
+            if (!workoutCompleted) {
+                workoutCompleted = true;
+                fireCoachEvent('workout-complete', `${activeWorkout.name} complete. Great work!`, [200, 80, 200, 80, 400]);
+            }
+            workoutBlockIdx = activeWorkout.blocks.length - 1;
+            return;
+        }
+        if (idx !== workoutBlockIdx) {
+            workoutBlockIdx = idx;
+        }
+        // Announce new block once we've crossed into it.
+        if (workoutBlockIdx !== lastBlockIdxAnnounced) {
+            const b = activeWorkout.blocks[workoutBlockIdx];
+            const mins = Math.round(b.durationSec / 60);
+            const targetTxt = (b.targetSpeedMin && b.targetSpeedMax)
+                ? ` — target ${b.targetSpeedMin}–${b.targetSpeedMax} km/h`
+                : '';
+            fireCoachEvent('block-change',
+                `${b.label}${targetTxt}, ${mins > 0 ? mins + ' minute' + (mins === 1 ? '' : 's') : b.durationSec + ' seconds'}.`,
+                [80, 40, 80]);
+            lastBlockIdxAnnounced = workoutBlockIdx;
+        }
+    }
+
+    function getCurrentBlock() {
+        return activeWorkout ? activeWorkout.blocks[workoutBlockIdx] : null;
+    }
+
+    function getBlockTimeRemaining(sd) {
+        if (!activeWorkout || !sd) return null;
+        let acc = 0;
+        for (let i = 0; i <= workoutBlockIdx; i++) acc += activeWorkout.blocks[i].durationSec;
+        return Math.max(0, acc - sd.time);
+    }
+
+    function renderSessionModeBadge() {
+        if (!sessionModeBadge) return;
+        const mode = paused ? 'paused' : sessionMode;
+        let label = 'Free Run';
+        if (mode === 'goal')    label = 'Goal Run';
+        if (mode === 'workout') label = activeWorkout ? activeWorkout.name : 'Workout';
+        if (mode === 'paused')  label = 'Paused';
+        sessionModeBadge.textContent = label;
+        sessionModeBadge.dataset.mode = mode;
+    }
+
+    function renderWorkoutPanel(sd) {
+        if (!workoutPanelEl) return;
+        if (!activeWorkout) {
+            workoutPanelEl.classList.add('hidden');
+            return;
+        }
+        const cur = getCurrentBlock();
+        const next = activeWorkout.blocks[workoutBlockIdx + 1] || null;
+        const remain = getBlockTimeRemaining(sd);
+        wpCurrentBlockEl.textContent = cur ? cur.label : '—';
+        wpNextBlockEl.textContent    = next ? `${next.label} · ${Math.round(next.durationSec/60) || '<1'} min` : 'Cool down done';
+        wpCountdownEl.textContent    = remain != null ? formatDuration(remain) : '--:--';
+
+        // Per-block progress bar
+        if (cur && sd) {
+            let acc = 0;
+            for (let i = 0; i < workoutBlockIdx; i++) acc += activeWorkout.blocks[i].durationSec;
+            const inBlock = Math.max(0, sd.time - acc);
+            const pct = Math.min(100, (inBlock / cur.durationSec) * 100);
+            wpProgressFillEl.style.width = pct + '%';
+        }
+        workoutPanelEl.classList.remove('hidden');
+    }
+
+    function getActiveTargetBand() {
+        // Priority: workout block target > goal pace ±0.5 km/h > none.
+        if (activeWorkout) {
+            const b = getCurrentBlock();
+            if (b && b.targetSpeedMin && b.targetSpeedMax) {
+                return { min: b.targetSpeedMin, max: b.targetSpeedMax, source: 'block' };
+            }
+        }
+        if (sessionMode === 'goal' && goalDistance && goalTime && lastData) {
+            const sd = getSessionData(lastData);
+            if (sd) {
+                const pace = analyzePace(sd);
+                if (pace && pace.requiredSpeedKmh > 0) {
+                    const req = pace.requiredSpeedKmh;
+                    return { min: parseFloat((req - 0.5).toFixed(1)), max: parseFloat((req + 0.5).toFixed(1)), source: 'goal' };
+                }
+            }
+        }
+        return null;
+    }
+
+    function classifyBand(speed, band) {
+        if (!band) return 'none';
+        if (speed < band.min) return 'under';
+        if (speed > band.max) return 'over';
+        return 'on';
+    }
+
+    function renderTargetBand(sd) {
+        if (!targetBandEl) return;
+        const band = getActiveTargetBand();
+        if (!band || !lastData) {
+            targetBandEl.classList.add('hidden');
+            return;
+        }
+        tbRangeEl.textContent = `${band.min.toFixed(1)}–${band.max.toFixed(1)} km/h`;
+        const cls = classifyBand(lastData.speed, band);
+        tbStatusEl.className = `tb-status ${cls}`;
+        tbStatusEl.textContent = cls === 'on' ? 'On target' : cls === 'under' ? 'Under' : 'Over';
+        targetBandEl.classList.remove('hidden');
+    }
+
+    function renderPaceTargets(sd) {
+        if (!paceTargetsEl) return;
+        if (sessionMode !== 'goal' || !goalDistance || !goalTime || !sd) {
+            paceTargetsEl.classList.add('hidden');
+            return;
+        }
+        const pace = analyzePace(sd);
+        if (!pace) { paceTargetsEl.classList.add('hidden'); return; }
+
+        ptRequiredEl.textContent = `${pace.requiredSpeedKmh.toFixed(1)} km/h`;
+        ptCurrentEl.textContent  = `${(lastData.speed || 0).toFixed(1)} km/h`;
+        const gap = pace.speedGap; // +ve = runner too slow
+        const sign = gap > 0 ? '+' : gap < 0 ? '−' : '';
+        ptGapEl.textContent = `${sign}${Math.abs(gap).toFixed(1)} km/h`;
+
+        const gapCell = ptGapEl.parentElement;
+        gapCell.classList.remove('gap-over','gap-under','gap-on');
+        if (gap > 0.5)      gapCell.classList.add('gap-under'); // need to speed up
+        else if (gap < -0.5) gapCell.classList.add('gap-over');  // ahead of pace — styled red? no, green-ish
+        else                gapCell.classList.add('gap-on');
+
+        paceTargetsEl.classList.remove('hidden');
+    }
+
+    function checkGoalCompleteEvent(sd) {
+        if (goalCompleteAnnounced || sessionMode !== 'goal' || !sd) return;
+        const distOk = !goalDistance || sd.distance >= goalDistance;
+        const timeOk = !goalTime     || (sd.time / 60) >= goalTime;
+        const either = goalDistance || goalTime;
+        if (!either) return;
+        if (distOk && timeOk) {
+            goalCompleteAnnounced = true;
+            fireCoachEvent('goal-complete', 'Goal complete. Great work!', [200, 80, 200, 80, 400]);
+        }
+    }
+
+    function checkDriftEvent(sd) {
+        if (!sd || !lastData) return;
+        const band = getActiveTargetBand();
+        if (!band) { driftSinceMs = 0; return; }
+        const cls = classifyBand(lastData.speed, band);
+        const now = Date.now();
+
+        if (cls === 'on') { driftSinceMs = 0; return; }
+
+        // Start tracking drift on first off-band reading
+        if (!driftSinceMs) driftSinceMs = now;
+
+        // Sustained > 15s off-band AND not announced in last 60s → fire
+        if (now - driftSinceMs >= 15000 && now - lastDriftAnnounceMs >= 60000) {
+            const msg = cls === 'under'
+                ? `Pace is below target. Push to ${band.min.toFixed(1)} km/h or above.`
+                : `Pace is above target. Ease back toward ${band.max.toFixed(1)} km/h.`;
+            fireCoachEvent('drift-' + cls, msg, cls === 'over' ? [180, 80, 180] : [80, 40, 80, 40, 80]);
+            lastDriftAnnounceMs = now;
+        }
     }
 
     function parseTreadmillData(dataView) {
@@ -1671,25 +2001,74 @@
     }
 
     function setSessionMode(mode) {
-        if (mode === 'workout') return; // reserved for Section 2
+        if (!['free','goal','workout'].includes(mode)) return;
         sessionMode = mode;
         [modeFreeBtn, modeGoalBtn, modeWorkoutBtn].forEach(btn => {
             if (!btn) return;
             btn.classList.toggle('active', btn.dataset.mode === mode);
         });
-        // Show/hide goal inputs based on mode.
-        if (goalInputsWrap) goalInputsWrap.hidden = (mode !== 'goal');
+        // Show/hide goal inputs + workout picker based on mode.
+        if (goalInputsWrap)  goalInputsWrap.hidden  = (mode !== 'goal');
+        if (workoutPickerEl) workoutPickerEl.hidden = (mode !== 'workout');
 
         if (modeHeader && modeSubtext) {
             if (mode === 'free') {
-                modeHeader.textContent = 'Set out and run at your own pace.';
+                modeHeader.textContent  = 'Set out and run at your own pace.';
                 modeSubtext.textContent = 'No target, no pressure — coach reacts to your effort.';
             } else if (mode === 'goal') {
-                modeHeader.textContent = 'Pick a distance or time target.';
+                modeHeader.textContent  = 'Pick a distance or time target.';
                 modeSubtext.textContent = 'Coach will push/pull you to hit it. Leave one blank for a simpler goal.';
+            } else {
+                modeHeader.textContent  = 'Pick a structured workout.';
+                modeSubtext.textContent = 'Treadmill-first sessions with automatic block progression.';
             }
         }
         updatePrimaryCTA();
+    }
+
+    function renderWorkoutPicker() {
+        if (!workoutPickerEl) return;
+        workoutPickerEl.innerHTML = Object.values(WORKOUT_PRESETS).map(p => {
+            const totalMin = Math.round(p.blocks.reduce((s,b) => s + b.durationSec, 0) / 60);
+            const active = selectedWorkoutId === p.id ? ' active' : '';
+            return `<button class="btn-preset-workout${active}" data-wid="${p.id}">
+                <span class="wpick-name">${p.name} <span style="opacity:0.55;font-weight:600;">· ${totalMin} min</span></span>
+                <span class="wpick-desc">${p.desc}</span>
+            </button>`;
+        }).join('');
+    }
+
+    function setCoachingMode(mode) {
+        if (!['quiet','spoken','haptic'].includes(mode)) mode = 'spoken';
+        coachingMode = mode;
+        localStorage.setItem('coachingMode', mode);
+        if (coachingModeSel) {
+            coachingModeSel.querySelectorAll('.btn-cmode').forEach(b => {
+                b.classList.toggle('active', b.dataset.cmode === mode);
+            });
+        }
+    }
+
+    // Speak / haptic wrappers. Graceful no-op when unavailable.
+    function speak(text) {
+        try {
+            if (!('speechSynthesis' in window)) return;
+            const u = new SpeechSynthesisUtterance(text);
+            u.rate = 1.0; u.pitch = 1.0; u.volume = 1.0;
+            window.speechSynthesis.cancel(); // interrupt backlog — coach is terse by design
+            window.speechSynthesis.speak(u);
+        } catch (e) { /* swallow */ }
+    }
+    function haptic(pattern) {
+        try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) { /* swallow */ }
+    }
+    // Central sparse-coach dispatcher. Respects Quiet / Spoken / Haptic.
+    function fireCoachEvent(kind, text, vibratePattern) {
+        // On-screen update is already done by the regular coach-loop message;
+        // this function just handles speech / haptics for sparse events.
+        if (coachingMode === 'quiet') return;
+        if (coachingMode === 'spoken') speak(text);
+        if (coachingMode === 'haptic') haptic(vibratePattern || 120);
     }
 
     function getSupportMode() {
@@ -1775,12 +2154,22 @@
             if (ctaHintEl) ctaHintEl.textContent = '';
         } else {
             // connected
-            setGoalBtn.textContent = sessionMode === 'goal' ? "Let's Go" : 'Start Run';
-            setGoalBtn.dataset.action = 'start';
-            setGoalBtn.disabled = false;
-            if (ctaHintEl) ctaHintEl.textContent = sessionMode === 'goal'
-                ? 'Leave a field blank to run against a simpler target.'
-                : 'Free Run — coach reacts to your effort.';
+            if (sessionMode === 'workout') {
+                const ok = !!selectedWorkoutId;
+                setGoalBtn.textContent = ok ? 'Start Workout' : 'Pick a workout';
+                setGoalBtn.dataset.action = 'start';
+                setGoalBtn.disabled = !ok;
+                if (ctaHintEl) ctaHintEl.textContent = ok
+                    ? `${WORKOUT_PRESETS[selectedWorkoutId].name} — blocks advance automatically.`
+                    : 'Select one of the presets above to continue.';
+            } else {
+                setGoalBtn.textContent = sessionMode === 'goal' ? "Let's Go" : 'Start Run';
+                setGoalBtn.dataset.action = 'start';
+                setGoalBtn.disabled = false;
+                if (ctaHintEl) ctaHintEl.textContent = sessionMode === 'goal'
+                    ? 'Leave a field blank to run against a simpler target.'
+                    : 'Free Run — coach reacts to your effort.';
+            }
         }
     }
 

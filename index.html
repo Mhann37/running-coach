@@ -52,7 +52,7 @@
         <div class="mode-selector" id="modeSelector" role="tablist" aria-label="Session mode">
             <button class="btn-mode active" data-mode="free" id="modeFreeBtn">Free Run</button>
             <button class="btn-mode" data-mode="goal" id="modeGoalBtn">Goal Run</button>
-            <button class="btn-mode" data-mode="workout" id="modeWorkoutBtn" disabled>Workout<span class="mode-coming">soon</span></button>
+            <button class="btn-mode" data-mode="workout" id="modeWorkoutBtn">Workout</button>
         </div>
 
         <div id="goalInputSection" class="goal-input-section">
@@ -70,6 +70,9 @@
                     <div class="goal-unit">minutes</div>
                 </div>
             </div>
+
+            <!-- Workout picker (shown in Workout mode) -->
+            <div class="workout-picker" id="workoutPicker" hidden></div>
 
             <!-- Capability summary (shown when connected) -->
             <div class="capability-summary hidden" id="capabilitySummary">
@@ -90,7 +93,14 @@
 
     <!-- Coach Feedback -->
     <div class="card coach-card" id="coachingCard">
-        <div class="card-title">Coach</div>
+        <div class="coach-header">
+            <div class="card-title">Coach</div>
+            <div class="coaching-mode-sel" id="coachingModeSel" role="tablist" aria-label="Coaching mode">
+                <button class="btn-cmode" data-cmode="quiet">Quiet</button>
+                <button class="btn-cmode active" data-cmode="spoken">Spoken</button>
+                <button class="btn-cmode" data-cmode="haptic">Haptic</button>
+            </div>
+        </div>
         <div class="coaching-message" id="coachingMessage">
             <strong>Ready when you are</strong>
             Connect your treadmill, choose a mode, then tap the primary button to start.
@@ -133,6 +143,37 @@
 
     <!-- Live Metrics -->
     <div class="card hidden" id="metricsCard">
+        <!-- Session mode badge -->
+        <div class="session-mode-badge" id="sessionModeBadge" data-mode="free">Free Run</div>
+
+        <!-- Workout block panel (shown in Workout mode) -->
+        <div class="workout-panel hidden" id="workoutPanel">
+            <div class="wp-row wp-now">
+                <span class="wp-label">Now</span>
+                <span class="wp-block" id="wpCurrentBlock">—</span>
+                <span class="wp-countdown" id="wpCountdown">--:--</span>
+            </div>
+            <div class="wp-row wp-next">
+                <span class="wp-label">Next</span>
+                <span id="wpNextBlock">—</span>
+            </div>
+            <div class="wp-progress"><div class="wp-progress-fill" id="wpProgressFill"></div></div>
+        </div>
+
+        <!-- Target band (speed target vs actual) -->
+        <div class="target-band hidden" id="targetBand">
+            <span class="tb-label">Target</span>
+            <span class="tb-range" id="tbRange">—</span>
+            <span class="tb-status" id="tbStatus">—</span>
+        </div>
+
+        <!-- Goal Run pace summary (required / current / gap) -->
+        <div class="pace-targets hidden" id="paceTargets">
+            <div class="pt-cell"><div class="pt-label">Required</div><div class="pt-val" id="ptRequired">--</div></div>
+            <div class="pt-cell"><div class="pt-label">Current</div><div class="pt-val" id="ptCurrent">--</div></div>
+            <div class="pt-cell"><div class="pt-label">Gap</div><div class="pt-val" id="ptGap">--</div></div>
+        </div>
+
         <!-- Hero row: speed dominant left, HR right when connected -->
         <div class="metrics-hero">
             <div class="metric-speed-block">
