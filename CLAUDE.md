@@ -17,7 +17,10 @@ No build step. The app is a static PWA composed of:
 - Transfer the files to an Android device and open `index.html` in Chrome, OR
 - Serve via any static file server (e.g. `python3 -m http.server 8080`) and open on Android Chrome via LAN IP
 
-**Deployed URL:** `https://mhann37.github.io/running-coach/` (GitHub Pages, auto-deploys from `main`)
+**Deployed URLs:**
+- **Primary:** `https://running-coach-ee164.web.app/` (Firebase Hosting, auto-deploys from `main` via `.github/workflows/firebase-hosting-merge.yml`). Use this for Google sign-in — origin matches `authDomain`, same-origin OAuth.
+- Mirror: `https://running-coach-ee164.firebaseapp.com/` (same Firebase Hosting deploy).
+- Legacy: `https://mhann37.github.io/running-coach/` (GitHub Pages). Sign-in on this origin is unreliable because it is cross-origin from `authDomain`.
 
 **Runtime constraint:** Web Bluetooth requires Chrome on Android. Does not work in Firefox, Safari, Samsung Internet, or non-Android desktop Chrome. HTTPS or `file://` required.
 

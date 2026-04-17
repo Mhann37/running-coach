@@ -27,7 +27,37 @@ A static web app that turns a Chrome-on-Android phone into a coaching head-unit 
 4. Open the app URL in Chrome and sign in with Google.
 
 **Deployed:**
-- `https://mhann37.github.io/running-coach/` (auto-deploys from `main` via GitHub Pages).
+- **Primary (recommended for Google Sign-In):** `https://running-coach-ee164.web.app/` or `https://running-coach-ee164.firebaseapp.com/` — Firebase Hosting, auto-deploys from `main`.
+- `https://mhann37.github.io/running-coach/` — legacy GitHub Pages mirror.
+
+> **Why Firebase Hosting is primary:** the page origin matches the Firebase `authDomain`, so Google OAuth runs same-origin and avoids the cross-origin iframe path that Chrome's third-party storage partitioning frequently breaks. Google sign-in works reliably on Android Chrome only from the Firebase Hosting URL.
+
+## Deploying to Firebase Hosting
+
+Firebase Hosting config lives at `firebase.json` and `.firebaserc`. The project is `running-coach-ee164`.
+
+**Manual one-off deploy (from your machine):**
+
+```bash
+npm install -g firebase-tools
+firebase login
+firebase deploy --only hosting
+```
+
+Site will be live at `https://running-coach-ee164.web.app/` and `https://running-coach-ee164.firebaseapp.com/`.
+
+**Automatic deploys via GitHub Actions:**
+
+Workflows live at `.github/workflows/firebase-hosting-merge.yml` (pushes to `main`) and `.github/workflows/firebase-hosting-pull-request.yml` (PR previews). Both require a repo secret:
+
+1. In the Firebase console, generate a **service account** JSON (Project settings → Service accounts → Generate new private key) or run `firebase init hosting:github` which does it for you.
+2. Add the entire JSON as a GitHub repo secret named `FIREBASE_SERVICE_ACCOUNT_RUNNING_COACH_EE164`.
+3. Push to `main` — the workflow deploys to the `live` channel. PRs get a temporary preview URL posted as a PR check.
+
+**Authorized domains:** in Firebase Console → Authentication → Settings, ensure these are listed (they normally are by default for the hosting project):
+- `running-coach-ee164.web.app`
+- `running-coach-ee164.firebaseapp.com`
+- `localhost`
 
 ## What it does today
 
