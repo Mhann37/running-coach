@@ -111,6 +111,8 @@
     let firebaseDb    = null;
     let firebaseConfig = null;
     let firebaseConfigSource = null;
+    let lastAuthErrorCode = null;
+    let lastAuthErrorMessage = null;
     const FIREBASE_JSON_CONFIG_PATH = './firebase-config.json';
     let authBusy = false;
     let authBusyAction = null; // 'signin' | 'signout'
@@ -262,6 +264,12 @@
     const authStatusEl        = document.getElementById('authStatus');
     const googleSignInBtn     = document.getElementById('googleSignInBtn');
     const googleSignOutBtn    = document.getElementById('googleSignOutBtn');
+    const authCardEl          = document.getElementById('authCard');
+
+    const authDiagnosticsEl = document.createElement('pre');
+    authDiagnosticsEl.id = 'authDiagnostics';
+    authDiagnosticsEl.className = 'debug';
+    if (authCardEl) authCardEl.appendChild(authDiagnosticsEl);
 
     // ── Init ───────────────────────────────────────────────────────────────────
     if (!navigator.bluetooth) {
@@ -276,6 +284,8 @@
     // Initial PR visibility + Firebase initialization.
     refreshPersonalBestsVisibility();
     initFirebaseAuth();
+    renderAuthDiagnostics();
+    window.setInterval(renderAuthDiagnostics, 5000);
 
     // Initial chip + CTA + state rendering (pre-run, disconnected).
     setCoachingMode(coachingMode);
@@ -305,13 +315,11 @@
                     await firebaseAuth.signInWithRedirect(provider);
                     return;
                 } catch (redirectErr) {
-                    authStatusLevel = 'error';
-                    setAuthStatus(getAuthErrorMessage(redirectErr, 'signIn'), 'error');
+                    captureAuthError(redirectErr);
                     log(`Google sign-in redirect error: ${redirectErr.message}`);
                 }
             }
-            authStatusLevel = 'error';
-            setAuthStatus(getAuthErrorMessage(e, 'signIn'), 'error');
+            captureAuthError(e);
             log(`Google sign-in error: ${e.message}`);
             setAuthBusy(false);
         }
@@ -323,8 +331,7 @@
         try {
             await firebaseAuth.signOut();
         } catch (e) {
-            authStatusLevel = 'error';
-            setAuthStatus(getAuthErrorMessage(e, 'signOut'), 'error');
+            captureAuthError(e);
             log(`Google sign-out error: ${e.message}`);
             setAuthBusy(false);
         }
@@ -505,38 +512,30 @@
         renderPersonalBestsUI(getPersonalBests());
     }
 
-    function setAuthStatus(message, level = 'disconnected') {
-        if (!authStatusEl) return;
-        authStatusEl.textContent = message;
-        authStatusEl.className = `status ${level}`;
+
+    function clearAuthError() {
+        lastAuthErrorCode = null;
+        lastAuthErrorMessage = null;
+        renderAuthDiagnostics();
     }
 
-    function getAuthErrorMessage(error, context = 'auth') {
-        const code = error && error.code ? String(error.code) : '';
-        const messages = {
-            'auth/unauthorized-domain': 'Sign-in is blocked for this domain. Ask support to add this site to Firebase authorized domains.',
-            'auth/operation-not-allowed': 'Google sign-in is not enabled in Firebase. Ask support to enable the Google provider.',
-            'auth/invalid-api-key': 'Firebase API key is invalid. Check the Firebase config for this build.',
-            'auth/app-not-authorized': 'This app is not authorized for Firebase Auth. Verify API key and auth domain settings.',
-            'auth/configuration-not-found': 'Firebase Auth config is missing. Add the Firebase web config for this build.',
-            'auth/invalid-credential': 'Sign-in could not be completed. Try again, then re-open the app if it keeps failing.',
-            'auth/user-token-expired': 'Your session expired. Please sign in again.',
-            'auth/network-request-failed': 'Network issue while contacting Google/Firebase. Check your connection and try again.',
-            'auth/popup-blocked': 'Sign-in popup was blocked. Allow popups or try again to use redirect sign-in.',
-            'auth/popup-closed-by-user': 'Sign-in was cancelled before completion. Try again when ready.',
-            'auth/cancelled-popup-request': 'A sign-in request is already in progress. Wait a moment and try again.',
-            'auth/too-many-requests': 'Too many sign-in attempts. Wait a minute, then try again.',
-            'auth/internal-error': 'Sign-in is temporarily unavailable. Please try again shortly.'
-        };
+    function captureAuthError(err, fallbackMessage) {
+        lastAuthErrorCode = (err && err.code) ? err.code : null;
+        lastAuthErrorMessage = (err && err.message) ? err.message : (fallbackMessage || null);
+        renderAuthDiagnostics();
+    }
 
-        const fallbackByContext = {
-            signIn: 'Could not sign in with Google. Please try again.',
-            signOut: 'Could not sign out right now. Please try again.',
-            init: 'Cloud sync is unavailable right now. Please check Firebase setup and reload.',
-            auth: 'Authentication is unavailable right now. Please try again.'
-        };
-
-        return messages[code] || fallbackByContext[context] || fallbackByContext.auth;
+    function renderAuthDiagnostics() {
+        if (!authDiagnosticsEl) return;
+        const lines = [
+            'Auth diagnostics',
+            `origin: ${(location && location.origin) || 'unknown'}`,
+            `config source: ${firebaseConfigSource || 'not found'}`,
+            `auth enabled: ${authEnabled ? 'yes' : 'no'}`,
+            `last auth error code: ${lastAuthErrorCode || 'none'}`,
+            `last auth error message: ${lastAuthErrorMessage || 'none'}`
+        ];
+        authDiagnosticsEl.textContent = lines.join('\n');
     }
 
     function updateAuthUI() {
@@ -697,7 +696,8 @@
 
             firebaseAuth.onAuthStateChanged(user => {
                 authUser = user || null;
-                setAuthBusy(false);
+                clearAuthError();
+                updateAuthUI();
                 if (authUser) {
                     syncUserDataFromFirestore(authUser.uid).catch(e => log(`PR sync error: ${e.message}`));
                 }
