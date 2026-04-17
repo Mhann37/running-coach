@@ -15,8 +15,6 @@
       "firebase-config.example.json",
       "firebase-config.json"
     ],
-    "cleanUrls": true,
-    "trailingSlash": false,
     "headers": [
       {
         "source": "/app.js",
