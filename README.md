@@ -25,7 +25,7 @@ A static web app that turns a Chrome-on-Android phone into a coaching head-unit 
 - **Today's Run** card with three session modes:
   - **Free Run** — no target, coach reacts to effort.
   - **Goal Run** — distance and/or time target with pace-aware feedback.
-  - **Workout** — placeholder, wired in a later pass.
+  - **Workout** — structured, block-based treadmill workout with 3 built-in presets (Easy Progression, Tempo Blocks, 6 × 1 min Intervals). Blocks auto-advance by elapsed time.
 - A compact **status chip row** near the top showing treadmill, HR, and support-mode status at a glance.
 - **Truthful support classification** on connect:
   - **Controllable FTMS** — treadmill exposes a control point; speed & incline can be set from the app.
@@ -37,7 +37,11 @@ A static web app that turns a Chrome-on-Android phone into a coaching head-unit 
 - Live metrics: speed, pace, distance, time, incline, calories.
 - Heart rate from an external BLE HR monitor, or from the treadmill's FTMS packet as fallback (flag `0x100`). HR zone is labelled Easy / Aerobic / Tempo / Threshold / Max.
 - Goal progress bars (Goal Run).
-- Coach feedback every 15 s, with pace-drift messages when both distance and time goals are set.
+- Session mode badge (`Free Run` / `Goal Run` / workout name / `Paused`) at the top of the metrics card.
+- In Workout mode: current block, next block, per-block countdown, block progress bar.
+- Target-vs-actual speed band with an `Under` / `On target` / `Over` pill (workout block target, or Goal Run required pace ±0.5 km/h).
+- Goal Run: an explicit `Required / Current / Gap` row.
+- Coach feedback every 15 s on-screen. **Coaching modes** — Quiet (screen only), Spoken (screen + `speechSynthesis`), Haptic (screen + `navigator.vibrate`). Sparse, debounced audible/haptic triggers: block transitions, HR zone changes, sustained drift off the target band, and goal / workout completion.
 - Speed / incline control via FTMS control point when supported (presets: 7, 12.5, 15 km/h).
 
 ### Post-run
@@ -74,10 +78,12 @@ No build step, no modules, no bundler. Firebase (auth + Firestore) is loaded fro
 
 ## Known limitations
 
-- Workout-mode structured workouts are not yet wired (mode button is disabled).
 - No Strava / Garmin sync.
+- Post-run modal does not yet allow distance correction (planned).
 - Cadence is not reported — treadmills don't provide a reliable cadence signal, so it's deliberately omitted.
 - Signal strength / RSSI is not available through the Web Bluetooth API and is therefore not shown.
+- Speech synthesis relies on browser TTS — Chrome on Android speaks fine, but voice quality / latency varies by device.
+- Structured workouts are hard-coded presets; a user-editable workout builder is out of scope for this pass.
 
 ## License
 

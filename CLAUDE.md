@@ -40,9 +40,46 @@ Transitions are driven by `setAppState(state)` in `app.js`.
 Tracked by `sessionMode`:
 - `free` — no target, coach reacts to effort.
 - `goal` — distance and/or time target, pace-aware coaching.
-- `workout` — reserved for a later pass (button is visible but disabled).
+- `workout` — structured workout driven by the built-in engine (see below).
 
-`setSessionMode(mode)` toggles goal-input visibility and updates the primary CTA text.
+`setSessionMode(mode)` toggles goal-input visibility, workout-picker visibility, and updates the primary CTA text (`Connect Treadmill` → `Let's Go` / `Start Run` / `Start Workout`).
+
+### Workout Engine
+
+Three built-in, treadmill-first presets are defined inline in `app.js` under `WORKOUT_PRESETS`:
+- **Easy Progression** — warm-up, easy, steady, strong, cool down.
+- **Tempo Blocks** — 3 × 6 min tempo with 2 min easy between.
+- **6 × 1 min Intervals** — warm-up, 6 × (1 min hard / 1 min easy), cool down.
+
+Each block is plain data: `{ kind, label, durationSec, targetSpeedMin?, targetSpeedMax?, targetHrZoneMin?, targetHrZoneMax?, inclineTarget? }`. Targets are optional and only used when set.
+
+Runtime state: `activeWorkout`, `workoutBlockIdx`, `workoutCompleted`, `selectedWorkoutId`. The engine is time-first — `tickWorkout(sd)` cumulatively sums block durations and advances the current block when session elapsed time crosses each boundary. When the total duration is crossed, `workoutCompleted` fires once.
+
+`renderWorkoutPanel(sd)` draws current block, next block, per-block countdown, and a progress bar. Visible only in Workout mode.
+
+### Target-vs-Actual
+
+`getActiveTargetBand()` returns `{ min, max, source }` based on:
+1. Workout: current block's `targetSpeedMin/Max`
+2. Goal Run: required pace ±0.5 km/h (derived from `analyzePace()`)
+3. Otherwise: `null`.
+
+`renderTargetBand(sd)` draws the band and a status pill (`Under` / `On target` / `Over`). `renderPaceTargets(sd)` draws a 3-cell row (Required / Current / Gap) for Goal Run when both distance and time are set.
+
+A session-mode badge (`Free Run` / `Goal Run` / workout name / `Paused`) is drawn at the top of the metrics card.
+
+### Coaching Modes
+
+Tracked by `coachingMode` (`'quiet' | 'spoken' | 'haptic'`), persisted in `localStorage` under `coachingMode`. A small selector in the coach card header switches between them. The 15 s periodic on-screen coach message runs regardless of mode; the mode only affects sparse audible / haptic events.
+
+Sparse coach events, all debounced, dispatched via `fireCoachEvent(kind, text, vibratePattern)`:
+- **Block change** (Workout): announced once per new block.
+- **HR zone change**: announced when the current HR zone changes (skipped on first readout).
+- **Drift**: when actual speed leaves the target band for ≥ 15 s continuously, announced at most once per 60 s.
+- **Goal complete**: announced once when both distance and time targets are hit.
+- **Workout complete**: announced once when all blocks are done.
+
+Speech uses `window.speechSynthesis`; haptics use `navigator.vibrate`. Both degrade silently when unavailable.
 
 ### Support Mode / Capability Classification
 
@@ -92,7 +129,7 @@ HR zone feedback is appended when HR data is available: Easy (<120), Aerobic (12
 
 `analyzePace()` returns `null` when only distance or only time is set, or when the goal is already complete.
 
-(A coaching-mode preference — Quiet / Spoken / Haptic — plus structured workout support is planned for a later pass and not yet wired.)
+The periodic message is on-screen only. All audible / haptic output is driven by the sparse events described in "Coaching Modes" above.
 
 ### State Management
 
