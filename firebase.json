@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "running-coach-ee164",
     "public": ".",
     "ignore": [
       "firebase.json",
