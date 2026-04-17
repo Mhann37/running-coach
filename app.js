@@ -104,20 +104,13 @@
 
     // Firebase Auth / Firestore state
     let authUser      = null;
-    let authEnabled  = false; // true only when Firebase config is filled
+    let authEnabled  = false; // true only when Firebase config is available
+    let authDisabledReason = 'Firebase disabled: missing runtime config (config.js or firebase-config.json).';
     let firebaseAuth  = null;
     let firebaseDb    = null;
-
-    // TODO: Fill this with your Firebase project's "Web app" config.
-    // Keep keys out of git; treat this as a local-only placeholder.
-    const FIREBASE_CONFIG = {
-        apiKey: "AIzaSyCeTZWPAZ36HRoTFeOIBGwVEJ-fXbEpgQY",
-        authDomain: "running-coach-ee164.firebaseapp.com",
-        projectId: "running-coach-ee164",
-        storageBucket: "running-coach-ee164.firebasestorage.app",
-        messagingSenderId: "965560733067",
-        appId: "1:965560733067:web:d32cb09a6840188dd8f38e"
-    };
+    let firebaseConfig = null;
+    let firebaseConfigSource = null;
+    const FIREBASE_JSON_CONFIG_PATH = './firebase-config.json';
 
     // HR Monitor state
     let hrDevice            = null;
@@ -479,7 +472,7 @@
     function updateAuthUI() {
         if (!authEnabled) {
             if (authStatusEl) {
-                authStatusEl.textContent = 'Firebase not configured';
+                authStatusEl.textContent = authDisabledReason;
                 authStatusEl.className = 'status disconnected';
             }
             if (googleSignInBtn) {
@@ -508,33 +501,68 @@
         if (googleSignOutBtn) googleSignOutBtn.style.display = signedIn ? '' : 'none';
     }
 
-    function isFirebaseConfigured() {
-        return FIREBASE_CONFIG &&
-            FIREBASE_CONFIG.apiKey &&
-            !String(FIREBASE_CONFIG.apiKey).startsWith('YOUR_');
+    function isFirebaseConfigured(config) {
+        if (!config) return false;
+
+        return !!(
+            config.apiKey &&
+            config.authDomain &&
+            config.projectId &&
+            config.appId &&
+            !String(config.apiKey).startsWith('YOUR_')
+        );
+    }
+
+    async function loadFirebaseConfig() {
+        const configFromWindow = (typeof window !== 'undefined') ? window.RUNNING_COACH_FIREBASE_CONFIG : null;
+        if (isFirebaseConfigured(configFromWindow)) {
+            firebaseConfigSource = 'config.js';
+            return configFromWindow;
+        }
+
+        try {
+            const response = await fetch(FIREBASE_JSON_CONFIG_PATH, { cache: 'no-store' });
+            if (response.ok) {
+                const configFromJson = await response.json();
+                if (isFirebaseConfigured(configFromJson)) {
+                    firebaseConfigSource = FIREBASE_JSON_CONFIG_PATH;
+                    return configFromJson;
+                }
+            }
+        } catch (_) {
+            // json config is optional; we report a clear status in initFirebaseAuth.
+        }
+
+        firebaseConfigSource = null;
+        return null;
     }
 
     async function initFirebaseAuth() {
         try {
             if (typeof firebase === 'undefined') {
                 authEnabled = false;
+                authDisabledReason = 'Firebase init failed: SDK did not load.';
                 updateAuthUI();
                 return;
             }
 
-            if (!isFirebaseConfigured()) {
+            firebaseConfig = await loadFirebaseConfig();
+            if (!isFirebaseConfigured(firebaseConfig)) {
                 authEnabled = false;
+                authDisabledReason = 'Firebase init failed: runtime config missing/invalid. Add config.js or firebase-config.json.';
+                log('Firebase init failed: config missing/invalid in window.RUNNING_COACH_FIREBASE_CONFIG and firebase-config.json.');
                 updateAuthUI();
                 return;
             }
 
             if (!firebase.apps || firebase.apps.length === 0) {
-                firebase.initializeApp(FIREBASE_CONFIG);
+                firebase.initializeApp(firebaseConfig);
             }
 
             firebaseAuth = firebase.auth();
             firebaseDb = firebase.firestore();
             authEnabled = true;
+            authDisabledReason = 'Firebase disabled: missing runtime config (config.js or firebase-config.json).';
 
             updateAuthUI();
 
@@ -546,8 +574,11 @@
                 }
                 refreshPersonalBestsVisibility();
             });
+
+            log(`Firebase initialized from ${firebaseConfigSource || 'runtime config'}.`);
         } catch (e) {
             authEnabled = false;
+            authDisabledReason = `Firebase init error: ${e.message}`;
             log(`Firebase init error: ${e.message}`);
             updateAuthUI();
         }
