@@ -570,6 +570,29 @@
         return host === 'localhost' || host === '127.0.0.1' || host === '::1';
     }
 
+    async function configureAuthPersistence() {
+        if (!firebaseAuth || typeof firebase === 'undefined' || !firebase.auth || !firebase.auth.Auth || !firebase.auth.Auth.Persistence) {
+            authPersistenceMode = 'unknown';
+            return;
+        }
+
+        try {
+            await firebaseAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+            authPersistenceMode = 'local';
+        } catch (errLocal) {
+            try {
+                await firebaseAuth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+                authPersistenceMode = 'session';
+                captureAuthError(errLocal, 'Falling back to session auth persistence.');
+                log(`Auth persistence fallback (session): ${errLocal && errLocal.message ? errLocal.message : 'LOCAL persistence failed.'}`);
+            } catch (errSession) {
+                authPersistenceMode = 'none';
+                captureAuthError(errSession, 'Browser storage is unavailable; sign-in will not persist.');
+                log(`Auth persistence disabled: ${errSession && errSession.message ? errSession.message : 'SESSION persistence failed.'}`);
+            }
+        }
+    }
+
     function getAuthErrorMessage(err, phase = 'auth') {
         if (!err) return 'Google sign-in is temporarily unavailable.';
         const code = err.code || '';
@@ -753,12 +776,30 @@
             firebaseAuth.onAuthStateChanged(user => {
                 authUser = user || null;
                 clearAuthError();
+                setAuthBusy(false);
                 updateAuthUI();
                 if (authUser) {
                     syncUserDataFromFirestore(authUser.uid).catch(e => log(`PR sync error: ${e.message}`));
                 }
                 refreshPersonalBestsVisibility();
             });
+
+            // Resolve any pending redirect sign-in (mobile flow) so errors surface
+            // and the busy UI unsticks when the user returns to the page.
+            firebaseAuth.getRedirectResult()
+                .then(result => {
+                    if (result && result.user) {
+                        log('Google sign-in redirect completed.');
+                    }
+                })
+                .catch(err => {
+                    setAuthStatus(getAuthErrorMessage(err), 'error');
+                    captureAuthError(err);
+                    log(`Google sign-in redirect result error: ${err && err.message ? err.message : err}`);
+                })
+                .finally(() => {
+                    setAuthBusy(false);
+                });
 
             log(`Firebase initialized from ${firebaseConfigSource || 'runtime config'}.`);
         } catch (e) {
