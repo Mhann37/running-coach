@@ -372,7 +372,7 @@
             pauseBtn.textContent = 'Resume';
             pauseBtn.classList.add('paused');
             stopCoachingTimer();
-            coachingMessageEl.innerHTML = '<strong>⏸️ Paused</strong>Tap Resume when ready.';
+            setCoachingMessage('⏸️ Paused', 'Tap Resume when ready.');
             coachTimerEl.textContent = '';
             log('Session paused');
         } else {
@@ -469,7 +469,7 @@
             personalBestsEmpty.textContent = 'Sign in with Google to sync Personal Bests (PRs).';
             personalBestsEmpty.classList.remove('hidden');
             personalBestsTable.classList.add('hidden');
-            personalBestsTable.innerHTML = '';
+            personalBestsTable.replaceChildren();
             return;
         }
 
@@ -790,7 +790,12 @@
 
         // Workout block summary (only in Workout mode)
         if (activeWorkout) {
-            const rows = activeWorkout.blocks.map((b, i) => {
+            const titleEl = document.createElement('div');
+            titleEl.className = 'modal-blocks-title';
+            titleEl.textContent = 'Workout blocks';
+
+            stopModalBlocksEl.replaceChildren(titleEl);
+            activeWorkout.blocks.forEach((b, i) => {
                 const mins = Math.floor(b.durationSec / 60);
                 const secs = b.durationSec % 60;
                 const dur  = mins > 0 ? `${mins}:${String(secs).padStart(2,'0')}` : `${secs}s`;
@@ -798,16 +803,25 @@
                     ? `${b.targetSpeedMin}–${b.targetSpeedMax} km/h`
                     : '—';
                 const status = (workoutCompleted || i < workoutBlockIdx) ? '✓ ' : (i === workoutBlockIdx ? '• ' : '');
-                return `<div class="mb-item">
-                    <span class="mb-item-label">${status}${b.label}</span>
-                    <span class="mb-item-meta">${dur} · ${target}</span>
-                </div>`;
-            }).join('');
-            stopModalBlocksEl.innerHTML = `<div class="modal-blocks-title">Workout blocks</div>${rows}`;
+
+                const rowEl = document.createElement('div');
+                rowEl.className = 'mb-item';
+
+                const labelEl = document.createElement('span');
+                labelEl.className = 'mb-item-label';
+                labelEl.textContent = `${status}${b.label || 'Block'}`;
+
+                const metaEl = document.createElement('span');
+                metaEl.className = 'mb-item-meta';
+                metaEl.textContent = `${dur} · ${target}`;
+
+                rowEl.append(labelEl, metaEl);
+                stopModalBlocksEl.appendChild(rowEl);
+            });
             stopModalBlocksEl.classList.remove('hidden');
         } else {
             stopModalBlocksEl.classList.add('hidden');
-            stopModalBlocksEl.innerHTML = '';
+            stopModalBlocksEl.replaceChildren();
         }
     }
 
@@ -847,9 +861,7 @@
         if (paceTargetsEl)  paceTargetsEl.classList.add('hidden');
 
         // Set idle coaching message (no timer restart — waits for next goal confirm)
-        coachingMessageEl.innerHTML =
-            '<strong>Ready when you are</strong>' +
-            'Connect your treadmill, choose a mode, then tap the primary button to start.';
+        setCoachingMessage('Ready when you are', 'Connect your treadmill, choose a mode, then tap the primary button to start.');
         coachTimerEl.textContent = '';
 
         setAppState('prerun');
@@ -1510,7 +1522,7 @@
 
     function provideCoaching(data) {
         const { emoji, message } = buildCoachMessage(data);
-        coachingMessageEl.innerHTML = `<strong>${emoji} Coach Says:</strong>${message}`;
+        setCoachingMessage(`${emoji} Coach Says:`, message);
         coachTimerEl.textContent = `Next update in ${COACHING_INTERVAL / 1000}s`;
         nextCoachCountdown = COACHING_INTERVAL / 1000;
     }
@@ -1858,15 +1870,16 @@
     function renderPersonalBestsUI(personalBests) {
         const pb = personalBests || {};
         let hasAny = false;
+        personalBestsTable.replaceChildren();
 
-        let tableHtml = `
-            <div class="pb-row pb-head">
-                <div>KM</div>
-                <div>BEST TIME</div>
-                <div>AVG PACE</div>
-                <div>BEST 1K</div>
-            </div>
-        `;
+        const headRow = document.createElement('div');
+        headRow.className = 'pb-row pb-head';
+        ['KM', 'BEST TIME', 'AVG PACE', 'BEST 1K'].forEach(label => {
+            const cell = document.createElement('div');
+            cell.textContent = label;
+            headRow.appendChild(cell);
+        });
+        personalBestsTable.appendChild(headRow);
 
         for (let d = 1; d <= 10; d++) {
             const row = pb[d] || pb[String(d)];
@@ -1886,20 +1899,32 @@
 
             if (timeSec || avgPace || best1k) hasAny = true;
 
-            const missingClass = timeSec ? '' : 'missing';
-            tableHtml += `
-                <div class="pb-row">
-                    <div class="pb-dist">${d}km</div>
-                    <div class="pb-val ${missingClass}">${timeStr}</div>
-                    <div class="pb-val ${avgPace ? '' : 'missing'}">${avgPaceStr}</div>
-                    <div class="pb-val ${best1k ? '' : 'missing'}">${best1kStr}</div>
-                </div>
-            `;
+            const rowEl = document.createElement('div');
+            rowEl.className = 'pb-row';
+
+            const distEl = document.createElement('div');
+            distEl.className = 'pb-dist';
+            distEl.textContent = `${d}km`;
+
+            const timeEl = document.createElement('div');
+            timeEl.className = `pb-val ${timeSec ? '' : 'missing'}`.trim();
+            timeEl.textContent = timeStr;
+
+            const avgEl = document.createElement('div');
+            avgEl.className = `pb-val ${avgPace ? '' : 'missing'}`.trim();
+            avgEl.textContent = avgPaceStr;
+
+            const bestEl = document.createElement('div');
+            bestEl.className = `pb-val ${best1k ? '' : 'missing'}`.trim();
+            bestEl.textContent = best1kStr;
+
+            rowEl.append(distEl, timeEl, avgEl, bestEl);
+            personalBestsTable.appendChild(rowEl);
         }
 
         personalBestsEmpty.classList.toggle('hidden', hasAny);
         personalBestsTable.classList.toggle('hidden', !hasAny);
-        personalBestsTable.innerHTML = hasAny ? tableHtml : '';
+        if (!hasAny) personalBestsTable.replaceChildren();
     }
 
     function updatePersonalBestsFromWorkout(workout) {
@@ -1965,82 +1990,106 @@
         const history = getHistory();
 
         if (history.length === 0) {
-            historyList.innerHTML = '<div class="history-empty">No runs saved yet — complete a session to see your history.</div>';
+            const empty = document.createElement('div');
+            empty.className = 'history-empty';
+            empty.textContent = 'No runs saved yet — complete a session to see your history.';
+            historyList.replaceChildren(empty);
             return;
         }
 
-        historyList.innerHTML = history.map(w => {
+        historyList.replaceChildren();
+        history.forEach((w, idx) => {
             // Collision-proof gradient ID using sanitised ISO date string
-            const gradId = `spk-${w.date.replace(/[^a-zA-Z0-9]/g, '')}`;
+            const safeDateForId = String(w.date || '').replace(/[^a-zA-Z0-9]/g, '');
+            const gradId = `spk-${safeDateForId || `run${idx}`}`;
 
             const sparklineHtml = renderSparkline(w.speedSamples || [], gradId);
 
-            const badgeHtml = w.goalAchieved
-                ? `<span class="history-goal-badge ${w.goalAchieved}">${w.goalAchieved === 'achieved' ? '✓ Goal achieved' : '~ Partial goal'}</span>`
-                : '';
-
-            const goalLineHtml = (w.goalDistance || w.goalTime)
-                ? `<div class="history-goal-line">Goal: ${[w.goalDistance ? w.goalDistance + ' km' : '', w.goalTime ? w.goalTime + ' min' : ''].filter(Boolean).join(' · ')}</div>`
-                : '';
-
             // Session-mode badge (legacy rows without sessionMode fall back to Free Run).
-            const mode = w.sessionMode || 'free';
+            const mode = (w.sessionMode === 'goal' || w.sessionMode === 'workout') ? w.sessionMode : 'free';
             let modeLabel = 'Free Run';
             if (mode === 'goal') modeLabel = 'Goal Run';
             else if (mode === 'workout') modeLabel = w.workoutName || 'Workout';
-            const modeBadgeHtml = `<span class="history-mode-badge" data-mode="${mode}">${modeLabel}</span>`;
 
             // Raw-vs-final distance hint (only when user corrected the value).
-            const rawHintHtml = (Number.isFinite(w.rawDistanceKm) && Math.abs(w.rawDistanceKm - w.distance) > 0.005)
-                ? `<div class="history-raw-hint">Machine reported ${w.rawDistanceKm.toFixed(2)} km · saved ${w.distance.toFixed(2)} km</div>`
-                : '';
+            const itemEl = document.createElement('div');
+            itemEl.className = 'history-item';
 
-            return `
-            <div class="history-item">
-                <div class="history-item-header">
-                    <span class="history-date">${formatDate(w.date)}</span>
-                    ${modeBadgeHtml}
-                    ${badgeHtml}
-                </div>
-                <div class="history-metrics">
-                    <div class="history-stat">
-                        <div class="history-stat-val">${w.distance.toFixed(2)}</div>
-                        <div class="history-stat-lbl">km</div>
-                    </div>
-                    <div class="history-stat">
-                        <div class="history-stat-val">${formatDuration(w.duration)}</div>
-                        <div class="history-stat-lbl">time</div>
-                    </div>
-                    <div class="history-stat">
-                        <div class="history-stat-val">${w.calories}</div>
-                        <div class="history-stat-lbl">kcal</div>
-                    </div>
-                    <div class="history-stat">
-                        <div class="history-stat-val">${w.avgSpeed.toFixed(1)}</div>
-                        <div class="history-stat-lbl">avg km/h</div>
-                    </div>
-                    <div class="history-stat">
-                        <div class="history-stat-val">${w.maxSpeed.toFixed(1)}</div>
-                        <div class="history-stat-lbl">max km/h</div>
-                    </div>
-                    <div class="history-stat">
-                        <div class="history-stat-val">${w.incline.toFixed(1)}%</div>
-                        <div class="history-stat-lbl">incline</div>
-                    </div>
-                    <div class="history-stat">
-                        <div class="history-stat-val">${Number.isFinite(w.avgPaceMinPerKm) ? formatPace(w.avgPaceMinPerKm) : '--:--/km'}</div>
-                        <div class="history-stat-lbl">avg pace</div>
-                    </div>
-                    <div class="history-stat">
-                        <div class="history-stat-val">${Number.isFinite(w.best1kPaceMinPerKm) ? formatPace(w.best1kPaceMinPerKm) : '--:--/km'}</div>
-                        <div class="history-stat-lbl">best 1km</div>
-                    </div>
-                </div>
-                ${sparklineHtml ? `<div class="history-sparkline">${sparklineHtml}</div>` : ''}
-                ${goalLineHtml}
-                ${rawHintHtml}
-            </div>`;
-        }).join('');
+            const headerEl = document.createElement('div');
+            headerEl.className = 'history-item-header';
+
+            const dateEl = document.createElement('span');
+            dateEl.className = 'history-date';
+            dateEl.textContent = formatDate(w.date);
+
+            const modeBadgeEl = document.createElement('span');
+            modeBadgeEl.className = 'history-mode-badge';
+            modeBadgeEl.dataset.mode = mode;
+            modeBadgeEl.textContent = modeLabel;
+
+            headerEl.append(dateEl, modeBadgeEl);
+
+            if (w.goalAchieved) {
+                const goalBadgeEl = document.createElement('span');
+                const goalState = (w.goalAchieved === 'achieved' || w.goalAchieved === 'partial') ? w.goalAchieved : 'partial';
+                goalBadgeEl.className = `history-goal-badge ${goalState}`;
+                goalBadgeEl.textContent = goalState === 'achieved' ? '✓ Goal achieved' : '~ Partial goal';
+                headerEl.appendChild(goalBadgeEl);
+            }
+
+            const metricsEl = document.createElement('div');
+            metricsEl.className = 'history-metrics';
+            const stats = [
+                { value: Number(w.distance).toFixed(2), label: 'km' },
+                { value: formatDuration(Number(w.duration) || 0), label: 'time' },
+                { value: String(w.calories ?? 0), label: 'kcal' },
+                { value: Number(w.avgSpeed).toFixed(1), label: 'avg km/h' },
+                { value: Number(w.maxSpeed).toFixed(1), label: 'max km/h' },
+                { value: `${Number(w.incline).toFixed(1)}%`, label: 'incline' },
+                { value: Number.isFinite(w.avgPaceMinPerKm) ? formatPace(w.avgPaceMinPerKm) : '--:--/km', label: 'avg pace' },
+                { value: Number.isFinite(w.best1kPaceMinPerKm) ? formatPace(w.best1kPaceMinPerKm) : '--:--/km', label: 'best 1km' }
+            ];
+            stats.forEach(s => {
+                const statEl = document.createElement('div');
+                statEl.className = 'history-stat';
+                const valEl = document.createElement('div');
+                valEl.className = 'history-stat-val';
+                valEl.textContent = s.value;
+                const lblEl = document.createElement('div');
+                lblEl.className = 'history-stat-lbl';
+                lblEl.textContent = s.label;
+                statEl.append(valEl, lblEl);
+                metricsEl.appendChild(statEl);
+            });
+
+            itemEl.append(headerEl, metricsEl);
+
+            if (sparklineHtml) {
+                const sparklineEl = document.createElement('div');
+                sparklineEl.className = 'history-sparkline';
+                sparklineEl.innerHTML = sparklineHtml;
+                itemEl.appendChild(sparklineEl);
+            }
+
+            if (w.goalDistance || w.goalTime) {
+                const goalLineEl = document.createElement('div');
+                goalLineEl.className = 'history-goal-line';
+                const goalParts = [
+                    w.goalDistance ? `${w.goalDistance} km` : '',
+                    w.goalTime ? `${w.goalTime} min` : ''
+                ].filter(Boolean);
+                goalLineEl.textContent = `Goal: ${goalParts.join(' · ')}`;
+                itemEl.appendChild(goalLineEl);
+            }
+
+            if (Number.isFinite(w.rawDistanceKm) && Math.abs(w.rawDistanceKm - w.distance) > 0.005) {
+                const rawHintEl = document.createElement('div');
+                rawHintEl.className = 'history-raw-hint';
+                rawHintEl.textContent = `Machine reported ${Number(w.rawDistanceKm).toFixed(2)} km · saved ${Number(w.distance).toFixed(2)} km`;
+                itemEl.appendChild(rawHintEl);
+            }
+            historyList.appendChild(itemEl);
+        });
     }
 
     /**
@@ -2069,20 +2118,37 @@
         const bottom = (H - pad).toFixed(1);
         const areaPts = `${pts} ${lastX},${bottom} ${firstX},${bottom}`;
 
+        const safeGradId = escapeHtml(gradId);
         return `<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
             <defs>
-                <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="${safeGradId}" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stop-color="#00B87A" stop-opacity="0.25"/>
                     <stop offset="100%" stop-color="#00B87A" stop-opacity="0"/>
                 </linearGradient>
             </defs>
-            <polygon points="${areaPts}" fill="url(#${gradId})"/>
+            <polygon points="${areaPts}" fill="url(#${safeGradId})"/>
             <polyline points="${pts}" fill="none" stroke="#00B87A" stroke-width="1.5"
                       stroke-linejoin="round" stroke-linecap="round"/>
         </svg>`;
     }
 
     // ── Utilities ──────────────────────────────────────────────────────────────
+    function escapeHtml(str) {
+        return String(str ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function setCoachingMessage(title, message) {
+        const strongEl = document.createElement('strong');
+        strongEl.textContent = title;
+        const textNode = document.createTextNode(message || '');
+        coachingMessageEl.replaceChildren(strongEl, textNode);
+    }
+
     function formatDuration(seconds) {
         const rounded = Math.max(0, Math.round(seconds));
         const m = Math.floor(rounded / 60);
@@ -2139,14 +2205,30 @@
 
     function renderWorkoutPicker() {
         if (!workoutPickerEl) return;
-        workoutPickerEl.innerHTML = Object.values(WORKOUT_PRESETS).map(p => {
+        workoutPickerEl.replaceChildren();
+        Object.values(WORKOUT_PRESETS).forEach(p => {
             const totalMin = Math.round(p.blocks.reduce((s,b) => s + b.durationSec, 0) / 60);
-            const active = selectedWorkoutId === p.id ? ' active' : '';
-            return `<button class="btn-preset-workout${active}" data-wid="${p.id}">
-                <span class="wpick-name">${p.name} <span style="opacity:0.55;font-weight:600;">· ${totalMin} min</span></span>
-                <span class="wpick-desc">${p.desc}</span>
-            </button>`;
-        }).join('');
+            const btn = document.createElement('button');
+            btn.className = `btn-preset-workout${selectedWorkoutId === p.id ? ' active' : ''}`;
+            btn.dataset.wid = p.id;
+
+            const nameWrap = document.createElement('span');
+            nameWrap.className = 'wpick-name';
+            nameWrap.textContent = `${p.name} `;
+
+            const durationEl = document.createElement('span');
+            durationEl.style.opacity = '0.55';
+            durationEl.style.fontWeight = '600';
+            durationEl.textContent = `· ${totalMin} min`;
+            nameWrap.appendChild(durationEl);
+
+            const descEl = document.createElement('span');
+            descEl.className = 'wpick-desc';
+            descEl.textContent = p.desc;
+
+            btn.append(nameWrap, descEl);
+            workoutPickerEl.appendChild(btn);
+        });
     }
 
     function setCoachingMode(mode) {
@@ -2222,7 +2304,7 @@
         const connected = !!(device && device.gatt && device.gatt.connected);
         if (!connected) {
             capabilitySummary.classList.add('hidden');
-            capListEl.innerHTML = '';
+            capListEl.replaceChildren();
             return;
         }
         const hasControl = !!controlPointCharacteristic;
@@ -2242,9 +2324,13 @@
               on: hasControl }
         ];
 
-        capListEl.innerHTML = items
-            .map(i => `<span class="cap-item ${i.on ? 'on' : 'off'}">${i.label}</span>`)
-            .join('');
+        capListEl.replaceChildren();
+        items.forEach(i => {
+            const chipEl = document.createElement('span');
+            chipEl.className = `cap-item ${i.on ? 'on' : 'off'}`;
+            chipEl.textContent = i.label;
+            capListEl.appendChild(chipEl);
+        });
         capabilitySummary.classList.remove('hidden');
     }
 
@@ -2286,7 +2372,9 @@
 
     function log(message) {
         const ts = new Date().toLocaleTimeString();
-        debugDiv.innerHTML += `[${ts}] ${message}<br>`;
+        const lineEl = document.createElement('div');
+        lineEl.textContent = `[${ts}] ${message}`;
+        debugDiv.appendChild(lineEl);
         debugDiv.scrollTop = debugDiv.scrollHeight;
         console.log(message);
     }
