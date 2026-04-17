@@ -105,7 +105,7 @@
     // Firebase Auth / Firestore state
     let authUser      = null;
     let authEnabled  = false; // true only when Firebase config is available
-    let authDisabledReason = 'Cloud sync unavailable on this build.';
+    let authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
     let firebaseAuth  = null;
     let firebaseDb    = null;
     let firebaseConfig = null;
@@ -166,7 +166,9 @@
     const inclineUpBtn  = document.getElementById('inclineUp');
     const inclineDownBtn = document.getElementById('inclineDown');
     const preset7Btn    = document.getElementById('preset7');
-    const preset12Btn   = document.getElementById('preset12');
+    const preset9Btn    = document.getElementById('preset9');
+    const preset11Btn   = document.getElementById('preset11');
+    const preset13Btn   = document.getElementById('preset13');
     const preset15Btn   = document.getElementById('preset15');
 
     // Chip row + mode selector + capability refs
@@ -282,10 +284,23 @@
     // ── Event listeners ────────────────────────────────────────────────────────
     googleSignInBtn.addEventListener('click', async () => {
         if (!authEnabled || !firebaseAuth) return;
+        const provider = new firebase.auth.GoogleAuthProvider();
         try {
-            const provider = new firebase.auth.GoogleAuthProvider();
+            if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')) {
+                await firebaseAuth.signInWithRedirect(provider);
+                return;
+            }
             await firebaseAuth.signInWithPopup(provider);
         } catch (e) {
+            const popupUnavailable = e && (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request');
+            if (popupUnavailable) {
+                try {
+                    await firebaseAuth.signInWithRedirect(provider);
+                    return;
+                } catch (redirectErr) {
+                    log(`Google sign-in redirect error: ${redirectErr.message}`);
+                }
+            }
             log(`Google sign-in error: ${e.message}`);
         }
     });
@@ -344,7 +359,9 @@
     inclineUpBtn.addEventListener('click',  () => adjustIncline(INCLINE_STEP));
     inclineDownBtn.addEventListener('click',() => adjustIncline(-INCLINE_STEP));
     preset7Btn.addEventListener('click',    () => setTargetSpeed(7));
-    preset12Btn.addEventListener('click',   () => setTargetSpeed(12.5));
+    preset9Btn.addEventListener('click',    () => setTargetSpeed(9));
+    preset11Btn.addEventListener('click',   () => setTargetSpeed(11));
+    preset13Btn.addEventListener('click',   () => setTargetSpeed(13));
     preset15Btn.addEventListener('click',   () => setTargetSpeed(15));
 
     setGoalBtn.addEventListener('click', () => {
@@ -554,7 +571,7 @@
             firebaseConfig = await loadFirebaseConfig();
             if (!isFirebaseConfigured(firebaseConfig)) {
                 authEnabled = false;
-                authDisabledReason = 'Cloud sync unavailable on this build.';
+                authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
                 log('Firebase init failed: config missing/invalid in window.RUNNING_COACH_FIREBASE_CONFIG and firebase-config.json.');
                 updateAuthUI();
                 return;
@@ -567,7 +584,7 @@
             firebaseAuth = firebase.auth();
             firebaseDb = firebase.firestore();
             authEnabled = true;
-            authDisabledReason = 'Cloud sync unavailable on this build.';
+            authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
 
             updateAuthUI();
 
@@ -1041,7 +1058,7 @@
 
     function enableControls(on) {
         [speedUpBtn, speedDownBtn, inclineUpBtn, inclineDownBtn,
-         preset7Btn, preset12Btn, preset15Btn].forEach(b => b.disabled = !on);
+         preset7Btn, preset9Btn, preset11Btn, preset13Btn, preset15Btn].forEach(b => { if (b) b.disabled = !on; });
     }
 
     // ── Heart Rate Monitor ─────────────────────────────────────────────────────
