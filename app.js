@@ -12,7 +12,7 @@
     const SPEED_MAX     = 25;
     const INCLINE_MIN   = 0;
     const INCLINE_MAX   = 15;
-    const COACHING_INTERVAL   = 15000;
+    const COACHING_INTERVAL   = 30000;
     const MAX_RECONNECT_TRIES = 5;
     const HISTORY_MAX         = 10;
     const SPEED_SAMPLE_INTERVAL_MS = 30000; // one sample per 30 s
@@ -92,8 +92,13 @@
     let workoutBlockIdx      = 0;
     let workoutCompleted     = false;
 
-    // Coaching mode: 'quiet' | 'spoken' | 'haptic'. Persisted in localStorage.
-    let coachingMode         = (localStorage.getItem('coachingMode') || 'spoken');
+    // Coaching mode: 'written' | 'spoken'. Persisted in localStorage.
+    // Migrate legacy values ('quiet' → 'written', 'haptic' → 'written').
+    let coachingMode         = (() => {
+        const stored = localStorage.getItem('coachingMode');
+        if (stored === 'spoken') return 'spoken';
+        return 'written';
+    })();
 
     // Sparse coach event debounce state
     let lastBlockIdxAnnounced = -1;
@@ -1100,8 +1105,7 @@
         stopModalModeEl.dataset.mode = modeKey;
 
         const metaParts = [supportModeLabel(getSupportMode())];
-        if (coachingMode && coachingMode !== 'quiet') metaParts.push(`Coach: ${coachingMode}`);
-        else if (coachingMode === 'quiet') metaParts.push('Coach: quiet');
+        metaParts.push(`Coach: ${coachingMode || 'written'}`);
         stopModalMetaEl.textContent = metaParts.join(' · ');
 
         // Distance correction
@@ -1847,6 +1851,7 @@
         setCoachingMessage(`${emoji} Coach Says:`, message);
         coachTimerEl.textContent = `Next update in ${COACHING_INTERVAL / 1000}s`;
         nextCoachCountdown = COACHING_INTERVAL / 1000;
+        if (coachingMode === 'spoken') speak(message);
     }
 
     // ── Pace analysis helpers ──────────────────────────────────────────────────
@@ -2556,7 +2561,7 @@
     }
 
     function setCoachingMode(mode) {
-        if (!['quiet','spoken','haptic'].includes(mode)) mode = 'spoken';
+        if (!['written','spoken'].includes(mode)) mode = 'written';
         coachingMode = mode;
         localStorage.setItem('coachingMode', mode);
         if (coachingModeSel) {
@@ -2566,26 +2571,18 @@
         }
     }
 
-    // Speak / haptic wrappers. Graceful no-op when unavailable.
     function speak(text) {
         try {
             if (!('speechSynthesis' in window)) return;
             const u = new SpeechSynthesisUtterance(text);
             u.rate = 1.0; u.pitch = 1.0; u.volume = 1.0;
-            window.speechSynthesis.cancel(); // interrupt backlog — coach is terse by design
+            window.speechSynthesis.cancel();
             window.speechSynthesis.speak(u);
         } catch (e) { /* swallow */ }
     }
-    function haptic(pattern) {
-        try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) { /* swallow */ }
-    }
-    // Central sparse-coach dispatcher. Respects Quiet / Spoken / Haptic.
+    // Central sparse-coach dispatcher. Spoken mode fires speech; written shows on-screen only.
     function fireCoachEvent(kind, text, vibratePattern) {
-        // On-screen update is already done by the regular coach-loop message;
-        // this function just handles speech / haptics for sparse events.
-        if (coachingMode === 'quiet') return;
         if (coachingMode === 'spoken') speak(text);
-        if (coachingMode === 'haptic') haptic(vibratePattern || 120);
     }
 
     function getSupportMode() {
