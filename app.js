@@ -151,6 +151,10 @@
     const speedEl          = document.getElementById('speed');
     const distanceEl       = document.getElementById('distance');
     const timeEl           = document.getElementById('time');
+    // Optional legacy overview tiles (safe no-op when not present).
+    const glancePaceEl     = document.getElementById('glancePace');
+    const glanceDistanceEl = document.getElementById('glanceDistance');
+    const glanceTimeEl     = document.getElementById('glanceTime');
     const inclineEl        = document.getElementById('incline');
     const caloriesEl       = document.getElementById('calories');
     const coachingMessageEl = document.getElementById('coachingMessage');
@@ -1515,6 +1519,9 @@
             timeEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         }
 
+        if (glancePaceEl) glancePaceEl.textContent = paceEl.textContent;
+        if (glanceDistanceEl) glanceDistanceEl.textContent = displayDist.toFixed(2);
+        if (glanceTimeEl) glanceTimeEl.textContent = timeEl.textContent;
 
         const displayCal = sd ? sd.calories : data.calories;
         inclineEl.textContent  = data.incline.toFixed(1);
