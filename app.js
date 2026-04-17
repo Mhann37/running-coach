@@ -117,6 +117,10 @@
     let authBusy = false;
     let authBusyAction = null; // 'signin' | 'signout'
     let authPersistenceMode = 'unknown';
+    let authCurrentUserSummary = 'none';
+    let authRedirectResultSummary = 'pending';
+    let authStorageSummary = 'unknown';
+    let authLastStateChange = 'none';
 
     const AUTH_SIGN_IN_LABEL = 'Sign in with Google';
     const AUTH_SIGN_OUT_LABEL = 'Sign out';
@@ -307,19 +311,28 @@
             return;
         }
         const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
         setAuthBusy(true, 'signin');
         setAuthStatus('Opening Google sign-in…', 'connecting');
+        log('Google sign-in: attempting popup first.');
         try {
-            if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')) {
-                await firebaseAuth.signInWithRedirect(provider);
-                return;
-            }
+            // Popup-first on all platforms. Modern Chrome on Android supports this and
+            // avoids the cross-origin iframe restoration that the redirect flow relies
+            // on when authDomain (firebaseapp.com) ≠ page origin.
             await firebaseAuth.signInWithPopup(provider);
         } catch (e) {
-            const popupUnavailable = e && (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request');
+            const popupUnavailable = e && (
+                e.code === 'auth/popup-blocked' ||
+                e.code === 'auth/popup-closed-by-user' ||
+                e.code === 'auth/cancelled-popup-request' ||
+                e.code === 'auth/operation-not-supported-in-this-environment'
+            );
+            log(`Google sign-in popup failed (${e && e.code ? e.code : 'unknown'}): ${e && e.message ? e.message : e}`);
             if (popupUnavailable) {
                 try {
                     setAuthBusy(true, 'signin');
+                    setAuthStatus('Redirecting to Google sign-in…', 'connecting');
+                    log('Google sign-in: falling back to redirect.');
                     await firebaseAuth.signInWithRedirect(provider);
                     return;
                 } catch (redirectErr) {
@@ -330,7 +343,6 @@
             }
             setAuthStatus(getAuthErrorMessage(e), 'error');
             captureAuthError(e);
-            log(`Google sign-in error: ${e.message}`);
             setAuthBusy(false);
         }
     });
@@ -535,14 +547,53 @@
         renderAuthDiagnostics();
     }
 
+    function describeFirebaseUser(user) {
+        if (!user) return 'none';
+        const email = user.email || '(no email)';
+        const uid = user.uid ? user.uid.slice(0, 8) + '…' : '(no uid)';
+        return `${email} [${uid}]`;
+    }
+
+    function probeAuthStorage() {
+        const result = [];
+        try {
+            const k = '__auth_probe__';
+            localStorage.setItem(k, '1');
+            localStorage.removeItem(k);
+            result.push('localStorage:ok');
+        } catch (e) {
+            result.push(`localStorage:blocked(${e.name || 'err'})`);
+        }
+        try {
+            const k = '__auth_probe__';
+            sessionStorage.setItem(k, '1');
+            sessionStorage.removeItem(k);
+            result.push('sessionStorage:ok');
+        } catch (e) {
+            result.push(`sessionStorage:blocked(${e.name || 'err'})`);
+        }
+        result.push(`cookieEnabled:${navigator.cookieEnabled ? 'yes' : 'no'}`);
+        return result.join(' · ');
+    }
+
     function renderAuthDiagnostics() {
         if (!authDiagnosticsEl) return;
+        const authDomain = (firebaseConfig && firebaseConfig.authDomain) || 'unknown';
+        const origin = (location && location.origin) || 'unknown';
+        const authDomainOrigin = `https://${authDomain}`;
+        const crossOrigin = authDomain !== 'unknown' && origin !== authDomainOrigin;
         const lines = [
             'Auth diagnostics',
-            `origin: ${(location && location.origin) || 'unknown'}`,
+            `origin: ${origin}`,
+            `authDomain: ${authDomain}${crossOrigin ? ' (cross-origin → iframe flow)' : ''}`,
             `config source: ${firebaseConfigSource || 'not found'}`,
             `auth enabled: ${authEnabled ? 'yes' : 'no'}`,
             `auth persistence: ${authPersistenceMode}`,
+            `current user: ${authCurrentUserSummary}`,
+            `last state change: ${authLastStateChange}`,
+            `redirect result: ${authRedirectResultSummary}`,
+            `storage: ${authStorageSummary}`,
+            `UA: ${(navigator.userAgent || '').slice(0, 90)}`,
             `last auth error code: ${lastAuthErrorCode || 'none'}`,
             `last auth error message: ${lastAuthErrorMessage || 'none'}`
         ];
@@ -773,8 +824,16 @@
 
             updateAuthUI();
 
+            authStorageSummary = probeAuthStorage();
+            authCurrentUserSummary = describeFirebaseUser(firebaseAuth.currentUser);
+            log(`Firebase initialized from ${firebaseConfigSource || 'runtime config'}. currentUser=${authCurrentUserSummary}; storage=${authStorageSummary}.`);
+            renderAuthDiagnostics();
+
             firebaseAuth.onAuthStateChanged(user => {
                 authUser = user || null;
+                authCurrentUserSummary = describeFirebaseUser(user);
+                authLastStateChange = `${new Date().toISOString().slice(11, 19)} ${user ? 'signed-in' : 'signed-out'}`;
+                log(`Auth state changed: ${authLastStateChange} user=${authCurrentUserSummary}`);
                 clearAuthError();
                 setAuthBusy(false);
                 updateAuthUI();
@@ -789,19 +848,22 @@
             firebaseAuth.getRedirectResult()
                 .then(result => {
                     if (result && result.user) {
-                        log('Google sign-in redirect completed.');
+                        authRedirectResultSummary = `success · ${describeFirebaseUser(result.user)}`;
+                        log(`Google sign-in redirect completed for ${describeFirebaseUser(result.user)}.`);
+                    } else {
+                        authRedirectResultSummary = 'no pending redirect';
                     }
                 })
                 .catch(err => {
+                    authRedirectResultSummary = `error · ${err && err.code ? err.code : 'unknown'}`;
                     setAuthStatus(getAuthErrorMessage(err), 'error');
                     captureAuthError(err);
-                    log(`Google sign-in redirect result error: ${err && err.message ? err.message : err}`);
+                    log(`Google sign-in redirect result error: ${err && err.code ? err.code + ' ' : ''}${err && err.message ? err.message : err}`);
                 })
                 .finally(() => {
                     setAuthBusy(false);
+                    renderAuthDiagnostics();
                 });
-
-            log(`Firebase initialized from ${firebaseConfigSource || 'runtime config'}.`);
         } catch (e) {
             authEnabled = false;
             authDisabledReason = getAuthErrorMessage(e, 'init');
