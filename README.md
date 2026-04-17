@@ -45,7 +45,7 @@ A static web app that turns a Chrome-on-Android phone into a coaching head-unit 
 - Target-vs-actual speed band with an `Under` / `On target` / `Over` pill (workout block target, or Goal Run required pace ±0.5 km/h).
 - Goal Run: an explicit `Required / Current / Gap` row.
 - Coach feedback every 15 s on-screen. **Coaching modes** — Quiet (screen only), Spoken (screen + `speechSynthesis`), Haptic (screen + `navigator.vibrate`). Sparse, debounced audible/haptic triggers: block transitions, HR zone changes, sustained drift off the target band, and goal / workout completion.
-- Speed / incline control via FTMS control point when supported (presets: 7, 12.5, 15 km/h).
+- Speed control via FTMS control point when supported (large presets: 7, 9, 11, 13, 15 km/h). Incline controls are intentionally hidden in run mode to keep the UI compact.
 
 ### Post-run
 - **Review-run modal** with mode badge (Free Run / Goal Run / workout name) + support-mode + coaching-mode meta.

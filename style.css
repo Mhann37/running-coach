@@ -325,8 +325,8 @@
         }
         .btn-stop:hover { background: rgba(224,57,78,0.11); }
 
-        /* Speed / Incline controls */
-        .control-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+        /* Speed controls */
+        .control-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
         .control-label {
             font-size: 0.58em; color: var(--text-3); font-weight: 700;
             text-transform: uppercase; letter-spacing: 1.8px; width: 54px; flex-shrink: 0;
@@ -357,12 +357,14 @@
         .btn-ctrl:active:not(:disabled) { transform: scale(0.88); }
         .btn-ctrl:disabled { opacity: 0.2; cursor: not-allowed; }
 
-        .presets { display: flex; gap: 7px; margin-top: 2px; margin-bottom: 14px; padding-left: 66px; }
+        .presets { display: grid; gap: 8px; margin-top: 2px; margin-bottom: 4px; }
+        .speed-presets { grid-template-columns: repeat(5, minmax(0, 1fr)); }
         .btn-preset {
-            flex: 1; background: var(--surface-2); color: var(--text-2);
+            background: var(--surface-2); color: var(--text-1);
             border: 1px solid var(--border);
-            padding: 8px 4px; border-radius: 10px; font-family: 'Space Grotesk', sans-serif;
-            font-size: 0.7em; font-weight: 700; cursor: pointer; transition: all 0.13s;
+            min-height: 56px;
+            border-radius: 12px; font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.05em; font-weight: 700; cursor: pointer; transition: all 0.13s;
             text-align: center; letter-spacing: 0.3px;
         }
         .btn-preset:hover:not(:disabled) { background: var(--surface-3); color: var(--text-1); border-color: var(--border-2); }
