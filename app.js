@@ -116,6 +116,7 @@
     const FIREBASE_JSON_CONFIG_PATH = './firebase-config.json';
     let authBusy = false;
     let authBusyAction = null; // 'signin' | 'signout'
+    let authPersistenceMode = 'unknown';
 
     const AUTH_SIGN_IN_LABEL = 'Sign in with Google';
     const AUTH_SIGN_OUT_LABEL = 'Sign out';
@@ -541,6 +542,7 @@
             `origin: ${(location && location.origin) || 'unknown'}`,
             `config source: ${firebaseConfigSource || 'not found'}`,
             `auth enabled: ${authEnabled ? 'yes' : 'no'}`,
+            `auth persistence: ${authPersistenceMode}`,
             `last auth error code: ${lastAuthErrorCode || 'none'}`,
             `last auth error message: ${lastAuthErrorMessage || 'none'}`
         ];
@@ -740,6 +742,7 @@
             }
 
             firebaseAuth = firebase.auth();
+            await configureAuthPersistence();
             firebaseDb = firebase.firestore();
             authEnabled = true;
             authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
