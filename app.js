@@ -106,6 +106,7 @@
     let authUser      = null;
     let authEnabled  = false; // true only when Firebase config is available
     let authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
+    let authStatusLevel = 'disconnected';
     let firebaseAuth  = null;
     let firebaseDb    = null;
     let firebaseConfig = null;
@@ -113,6 +114,13 @@
     let lastAuthErrorCode = null;
     let lastAuthErrorMessage = null;
     const FIREBASE_JSON_CONFIG_PATH = './firebase-config.json';
+    let authBusy = false;
+    let authBusyAction = null; // 'signin' | 'signout'
+
+    const AUTH_SIGN_IN_LABEL = 'Sign in with Google';
+    const AUTH_SIGN_OUT_LABEL = 'Sign out';
+    const AUTH_SIGNING_IN_LABEL = 'Signing in…';
+    const AUTH_SIGNING_OUT_LABEL = 'Signing out…';
 
     // HR Monitor state
     let hrDevice            = null;
@@ -290,8 +298,9 @@
 
     // ── Event listeners ────────────────────────────────────────────────────────
     googleSignInBtn.addEventListener('click', async () => {
-        if (!authEnabled || !firebaseAuth) return;
+        if (!authEnabled || !firebaseAuth || authBusy) return;
         const provider = new firebase.auth.GoogleAuthProvider();
+        setAuthBusy(true, 'signin');
         try {
             if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')) {
                 await firebaseAuth.signInWithRedirect(provider);
@@ -302,6 +311,7 @@
             const popupUnavailable = e && (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request');
             if (popupUnavailable) {
                 try {
+                    setAuthBusy(true, 'signin');
                     await firebaseAuth.signInWithRedirect(provider);
                     return;
                 } catch (redirectErr) {
@@ -311,16 +321,19 @@
             }
             captureAuthError(e);
             log(`Google sign-in error: ${e.message}`);
+            setAuthBusy(false);
         }
     });
 
     googleSignOutBtn.addEventListener('click', async () => {
-        if (!authEnabled || !firebaseAuth) return;
+        if (!authEnabled || !firebaseAuth || authBusy) return;
+        setAuthBusy(true, 'signout');
         try {
             await firebaseAuth.signOut();
         } catch (e) {
             captureAuthError(e);
             log(`Google sign-out error: ${e.message}`);
+            setAuthBusy(false);
         }
     });
 
@@ -527,36 +540,47 @@
 
     function updateAuthUI() {
         if (!authEnabled) {
-            if (authStatusEl) {
-                authStatusEl.textContent = authDisabledReason;
-                authStatusEl.className = 'status disconnected';
-            }
+            setAuthStatus(authDisabledReason, authStatusLevel || 'disconnected');
             if (googleSignInBtn) {
                 googleSignInBtn.disabled = true;
                 googleSignInBtn.style.opacity = 0.55;
                 googleSignInBtn.style.display = '';
+                googleSignInBtn.textContent = AUTH_SIGN_IN_LABEL;
+                googleSignInBtn.classList.remove('is-loading');
             }
-            if (googleSignOutBtn) googleSignOutBtn.style.display = 'none';
+            if (googleSignOutBtn) {
+                googleSignOutBtn.style.display = 'none';
+                googleSignOutBtn.disabled = true;
+                googleSignOutBtn.textContent = AUTH_SIGN_OUT_LABEL;
+                googleSignOutBtn.classList.remove('is-loading');
+            }
             return;
         }
 
         const signedIn = !!authUser;
-        if (authStatusEl) {
-            if (signedIn) {
-                authStatusEl.textContent = `Signed in: ${authUser.displayName || authUser.email || 'Google'}`;
-                authStatusEl.className = 'status connected';
-            } else {
-                authStatusEl.textContent = 'Signed out';
-                authStatusEl.className = 'status disconnected';
-            }
+        if (signedIn) {
+            authStatusLevel = 'connected';
+            setAuthStatus(`Signed in: ${authUser.displayName || authUser.email || 'Google'}`, 'connected');
+        } else {
+            authStatusLevel = 'disconnected';
+            setAuthStatus('Signed out', 'disconnected');
         }
 
         if (googleSignInBtn) {
-            googleSignInBtn.disabled = signedIn;
-            googleSignInBtn.style.opacity = signedIn ? 0.6 : 1;
+            const signInBusy = authBusyAction === 'signin' && authBusy;
+            googleSignInBtn.disabled = signedIn || disableAuthActions;
+            googleSignInBtn.style.opacity = (signedIn || disableAuthActions) ? 0.6 : 1;
             googleSignInBtn.style.display = '';
+            googleSignInBtn.textContent = signInBusy ? AUTH_SIGNING_IN_LABEL : AUTH_SIGN_IN_LABEL;
+            googleSignInBtn.classList.toggle('is-loading', signInBusy);
         }
-        if (googleSignOutBtn) googleSignOutBtn.style.display = signedIn ? '' : 'none';
+        if (googleSignOutBtn) {
+            const signOutBusy = authBusyAction === 'signout' && authBusy;
+            googleSignOutBtn.style.display = signedIn ? '' : 'none';
+            googleSignOutBtn.disabled = disableAuthActions;
+            googleSignOutBtn.textContent = signOutBusy ? AUTH_SIGNING_OUT_LABEL : AUTH_SIGN_OUT_LABEL;
+            googleSignOutBtn.classList.toggle('is-loading', signOutBusy);
+        }
     }
 
     function isFirebaseConfigured(config) {
@@ -633,9 +657,17 @@
 
     async function initFirebaseAuth() {
         try {
+            if (typeof location !== 'undefined' && location.protocol === 'file:') {
+                authEnabled = false;
+                authDisabledReason = 'Google sign-in requires HTTPS/localhost; file:// is unsupported for OAuth.';
+                updateAuthUI();
+                return;
+            }
+
             if (typeof firebase === 'undefined') {
                 authEnabled = false;
                 authDisabledReason = 'Cloud sync unavailable right now.';
+                authStatusLevel = 'error';
                 updateAuthUI();
                 return;
             }
@@ -644,6 +676,7 @@
             if (!isFirebaseConfigured(firebaseConfig)) {
                 authEnabled = false;
                 authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
+                authStatusLevel = 'disconnected';
                 log('Firebase init failed: config missing/invalid in window.RUNNING_COACH_FIREBASE_CONFIG and firebase-config.json.');
                 updateAuthUI();
                 return;
@@ -657,6 +690,7 @@
             firebaseDb = firebase.firestore();
             authEnabled = true;
             authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
+            authStatusLevel = 'disconnected';
 
             updateAuthUI();
 
@@ -673,7 +707,9 @@
             log(`Firebase initialized from ${firebaseConfigSource || 'runtime config'}.`);
         } catch (e) {
             authEnabled = false;
-            authDisabledReason = 'Cloud sync unavailable right now.';
+            authDisabledReason = getAuthErrorMessage(e, 'init');
+            authStatusLevel = 'error';
+            setAuthStatus(authDisabledReason, 'error');
             log(`Firebase init error: ${e.message}`);
             updateAuthUI();
         }
