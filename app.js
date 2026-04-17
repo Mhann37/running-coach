@@ -298,9 +298,16 @@
 
     // ── Event listeners ────────────────────────────────────────────────────────
     googleSignInBtn.addEventListener('click', async () => {
-        if (!authEnabled || !firebaseAuth || authBusy) return;
+        if (authBusy) return;
+        if (!authEnabled || !firebaseAuth) {
+            const reason = authDisabledReason || 'Google sign-in is unavailable right now.';
+            setAuthStatus(reason, 'error');
+            captureAuthError(null, reason);
+            return;
+        }
         const provider = new firebase.auth.GoogleAuthProvider();
         setAuthBusy(true, 'signin');
+        setAuthStatus('Opening Google sign-in…', 'connecting');
         try {
             if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')) {
                 await firebaseAuth.signInWithRedirect(provider);
@@ -315,10 +322,12 @@
                     await firebaseAuth.signInWithRedirect(provider);
                     return;
                 } catch (redirectErr) {
+                    setAuthStatus(getAuthErrorMessage(redirectErr), 'error');
                     captureAuthError(redirectErr);
                     log(`Google sign-in redirect error: ${redirectErr.message}`);
                 }
             }
+            setAuthStatus(getAuthErrorMessage(e), 'error');
             captureAuthError(e);
             log(`Google sign-in error: ${e.message}`);
             setAuthBusy(false);
@@ -551,6 +560,14 @@
         renderAuthDiagnostics();
     }
 
+    function isAuthOriginSupported() {
+        if (typeof location === 'undefined') return false;
+        if (location.protocol === 'https:') return true;
+        if (location.protocol !== 'http:') return false;
+        const host = (location.hostname || '').toLowerCase();
+        return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+    }
+
     function getAuthErrorMessage(err, phase = 'auth') {
         if (!err) return 'Google sign-in is temporarily unavailable.';
         const code = err.code || '';
@@ -692,9 +709,10 @@
 
     async function initFirebaseAuth() {
         try {
-            if (typeof location !== 'undefined' && location.protocol === 'file:') {
+            if (!isAuthOriginSupported()) {
                 authEnabled = false;
-                authDisabledReason = 'Google sign-in requires HTTPS/localhost; file:// is unsupported for OAuth.';
+                const originText = (typeof location !== 'undefined' && location.origin) ? location.origin : 'this origin';
+                authDisabledReason = `Google sign-in requires HTTPS (or localhost). Current origin is ${originText}.`;
                 updateAuthUI();
                 return;
             }
