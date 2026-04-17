@@ -105,7 +105,7 @@
     // Firebase Auth / Firestore state
     let authUser      = null;
     let authEnabled  = false; // true only when Firebase config is available
-    let authDisabledReason = 'Firebase disabled: missing runtime config (config.js or firebase-config.json).';
+    let authDisabledReason = 'Cloud sync is unavailable on this build.';
     let firebaseAuth  = null;
     let firebaseDb    = null;
     let firebaseConfig = null;
@@ -249,9 +249,10 @@
     const personalBestsEmpty     = document.getElementById('personalBestsEmpty');
     const personalBestsTable     = document.getElementById('personalBestsTable');
 
-    const authStatusEl          = document.getElementById('authStatus');
-    const googleSignInBtn      = document.getElementById('googleSignInBtn');
-    const googleSignOutBtn     = document.getElementById('googleSignOutBtn');
+    const authCard            = document.getElementById('authCard');
+    const authStatusEl        = document.getElementById('authStatus');
+    const googleSignInBtn     = document.getElementById('googleSignInBtn');
+    const googleSignOutBtn    = document.getElementById('googleSignOutBtn');
 
     // ── Init ───────────────────────────────────────────────────────────────────
     if (!navigator.bluetooth) {
@@ -471,6 +472,7 @@
 
     function updateAuthUI() {
         if (!authEnabled) {
+            if (authCard) authCard.classList.add('hidden');
             if (authStatusEl) {
                 authStatusEl.textContent = authDisabledReason;
                 authStatusEl.className = 'status disconnected';
@@ -483,6 +485,7 @@
             return;
         }
 
+        if (authCard) authCard.classList.remove('hidden');
         const signedIn = !!authUser;
         if (authStatusEl) {
             if (signedIn) {
@@ -541,7 +544,7 @@
         try {
             if (typeof firebase === 'undefined') {
                 authEnabled = false;
-                authDisabledReason = 'Firebase init failed: SDK did not load.';
+                authDisabledReason = 'Cloud sync unavailable right now.';
                 updateAuthUI();
                 return;
             }
@@ -549,7 +552,7 @@
             firebaseConfig = await loadFirebaseConfig();
             if (!isFirebaseConfigured(firebaseConfig)) {
                 authEnabled = false;
-                authDisabledReason = 'Firebase init failed: runtime config missing/invalid. Add config.js or firebase-config.json.';
+                authDisabledReason = 'Cloud sync unavailable on this build.';
                 log('Firebase init failed: config missing/invalid in window.RUNNING_COACH_FIREBASE_CONFIG and firebase-config.json.');
                 updateAuthUI();
                 return;
@@ -562,7 +565,7 @@
             firebaseAuth = firebase.auth();
             firebaseDb = firebase.firestore();
             authEnabled = true;
-            authDisabledReason = 'Firebase disabled: missing runtime config (config.js or firebase-config.json).';
+            authDisabledReason = 'Cloud sync unavailable on this build.';
 
             updateAuthUI();
 
@@ -578,7 +581,7 @@
             log(`Firebase initialized from ${firebaseConfigSource || 'runtime config'}.`);
         } catch (e) {
             authEnabled = false;
-            authDisabledReason = `Firebase init error: ${e.message}`;
+            authDisabledReason = 'Cloud sync unavailable right now.';
             log(`Firebase init error: ${e.message}`);
             updateAuthUI();
         }
@@ -1512,6 +1515,7 @@
             const s = displayTime % 60;
             timeEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         }
+
 
         const displayCal = sd ? sd.calories : data.calories;
         inclineEl.textContent  = data.incline.toFixed(1);
