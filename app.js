@@ -106,6 +106,7 @@
     let authUser      = null;
     let authEnabled  = false; // true only when Firebase config is available
     let authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
+    let authStatusLevel = 'disconnected';
     let firebaseAuth  = null;
     let firebaseDb    = null;
     let firebaseConfig = null;
@@ -304,9 +305,13 @@
                     await firebaseAuth.signInWithRedirect(provider);
                     return;
                 } catch (redirectErr) {
+                    authStatusLevel = 'error';
+                    setAuthStatus(getAuthErrorMessage(redirectErr, 'signIn'), 'error');
                     log(`Google sign-in redirect error: ${redirectErr.message}`);
                 }
             }
+            authStatusLevel = 'error';
+            setAuthStatus(getAuthErrorMessage(e, 'signIn'), 'error');
             log(`Google sign-in error: ${e.message}`);
             setAuthBusy(false);
         }
@@ -318,6 +323,8 @@
         try {
             await firebaseAuth.signOut();
         } catch (e) {
+            authStatusLevel = 'error';
+            setAuthStatus(getAuthErrorMessage(e, 'signOut'), 'error');
             log(`Google sign-out error: ${e.message}`);
             setAuthBusy(false);
         }
@@ -498,18 +505,43 @@
         renderPersonalBestsUI(getPersonalBests());
     }
 
-    function setAuthBusy(busy, action = null) {
-        authBusy = !!busy;
-        authBusyAction = authBusy ? action : null;
-        updateAuthUI();
+    function setAuthStatus(message, level = 'disconnected') {
+        if (!authStatusEl) return;
+        authStatusEl.textContent = message;
+        authStatusEl.className = `status ${level}`;
+    }
+
+    function getAuthErrorMessage(error, context = 'auth') {
+        const code = error && error.code ? String(error.code) : '';
+        const messages = {
+            'auth/unauthorized-domain': 'Sign-in is blocked for this domain. Ask support to add this site to Firebase authorized domains.',
+            'auth/operation-not-allowed': 'Google sign-in is not enabled in Firebase. Ask support to enable the Google provider.',
+            'auth/invalid-api-key': 'Firebase API key is invalid. Check the Firebase config for this build.',
+            'auth/app-not-authorized': 'This app is not authorized for Firebase Auth. Verify API key and auth domain settings.',
+            'auth/configuration-not-found': 'Firebase Auth config is missing. Add the Firebase web config for this build.',
+            'auth/invalid-credential': 'Sign-in could not be completed. Try again, then re-open the app if it keeps failing.',
+            'auth/user-token-expired': 'Your session expired. Please sign in again.',
+            'auth/network-request-failed': 'Network issue while contacting Google/Firebase. Check your connection and try again.',
+            'auth/popup-blocked': 'Sign-in popup was blocked. Allow popups or try again to use redirect sign-in.',
+            'auth/popup-closed-by-user': 'Sign-in was cancelled before completion. Try again when ready.',
+            'auth/cancelled-popup-request': 'A sign-in request is already in progress. Wait a moment and try again.',
+            'auth/too-many-requests': 'Too many sign-in attempts. Wait a minute, then try again.',
+            'auth/internal-error': 'Sign-in is temporarily unavailable. Please try again shortly.'
+        };
+
+        const fallbackByContext = {
+            signIn: 'Could not sign in with Google. Please try again.',
+            signOut: 'Could not sign out right now. Please try again.',
+            init: 'Cloud sync is unavailable right now. Please check Firebase setup and reload.',
+            auth: 'Authentication is unavailable right now. Please try again.'
+        };
+
+        return messages[code] || fallbackByContext[context] || fallbackByContext.auth;
     }
 
     function updateAuthUI() {
         if (!authEnabled) {
-            if (authStatusEl) {
-                authStatusEl.textContent = authDisabledReason;
-                authStatusEl.className = 'status disconnected';
-            }
+            setAuthStatus(authDisabledReason, authStatusLevel || 'disconnected');
             if (googleSignInBtn) {
                 googleSignInBtn.disabled = true;
                 googleSignInBtn.style.opacity = 0.55;
@@ -527,15 +559,12 @@
         }
 
         const signedIn = !!authUser;
-        const disableAuthActions = authBusy;
-        if (authStatusEl) {
-            if (signedIn) {
-                authStatusEl.textContent = `Signed in: ${authUser.displayName || authUser.email || 'Google'}`;
-                authStatusEl.className = 'status connected';
-            } else {
-                authStatusEl.textContent = 'Signed out';
-                authStatusEl.className = 'status disconnected';
-            }
+        if (signedIn) {
+            authStatusLevel = 'connected';
+            setAuthStatus(`Signed in: ${authUser.displayName || authUser.email || 'Google'}`, 'connected');
+        } else {
+            authStatusLevel = 'disconnected';
+            setAuthStatus('Signed out', 'disconnected');
         }
 
         if (googleSignInBtn) {
@@ -629,9 +658,17 @@
 
     async function initFirebaseAuth() {
         try {
+            if (typeof location !== 'undefined' && location.protocol === 'file:') {
+                authEnabled = false;
+                authDisabledReason = 'Google sign-in requires HTTPS/localhost; file:// is unsupported for OAuth.';
+                updateAuthUI();
+                return;
+            }
+
             if (typeof firebase === 'undefined') {
                 authEnabled = false;
                 authDisabledReason = 'Cloud sync unavailable right now.';
+                authStatusLevel = 'error';
                 updateAuthUI();
                 return;
             }
@@ -640,6 +677,7 @@
             if (!isFirebaseConfigured(firebaseConfig)) {
                 authEnabled = false;
                 authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
+                authStatusLevel = 'disconnected';
                 log('Firebase init failed: config missing/invalid in window.RUNNING_COACH_FIREBASE_CONFIG and firebase-config.json.');
                 updateAuthUI();
                 return;
@@ -653,6 +691,7 @@
             firebaseDb = firebase.firestore();
             authEnabled = true;
             authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
+            authStatusLevel = 'disconnected';
 
             updateAuthUI();
 
@@ -668,7 +707,9 @@
             log(`Firebase initialized from ${firebaseConfigSource || 'runtime config'}.`);
         } catch (e) {
             authEnabled = false;
-            authDisabledReason = 'Cloud sync unavailable right now.';
+            authDisabledReason = getAuthErrorMessage(e, 'init');
+            authStatusLevel = 'error';
+            setAuthStatus(authDisabledReason, 'error');
             log(`Firebase init error: ${e.message}`);
             updateAuthUI();
         }
