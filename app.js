@@ -538,7 +538,42 @@
         authDiagnosticsEl.textContent = lines.join('\n');
     }
 
+    function setAuthStatus(message, level = 'disconnected') {
+        if (!authStatusEl) return;
+        authStatusEl.textContent = message || 'Signed out';
+        authStatusEl.className = `status ${level}`;
+    }
+
+    function setAuthBusy(busy, action = null) {
+        authBusy = !!busy;
+        authBusyAction = authBusy ? (action || authBusyAction || 'signin') : null;
+        updateAuthUI();
+        renderAuthDiagnostics();
+    }
+
+    function getAuthErrorMessage(err, phase = 'auth') {
+        if (!err) return 'Google sign-in is temporarily unavailable.';
+        const code = err.code || '';
+        if (code === 'auth/unauthorized-domain') {
+            return 'This domain is not authorized in Firebase Authentication settings.';
+        }
+        if (code === 'auth/operation-not-allowed') {
+            return 'Google sign-in is disabled in Firebase Authentication providers.';
+        }
+        if (code === 'auth/invalid-api-key') {
+            return 'Firebase API key is invalid for this build.';
+        }
+        if (code === 'auth/invalid-app-credential' || code === 'auth/app-not-authorized') {
+            return 'OAuth app credentials are invalid for this origin.';
+        }
+        if (phase === 'init') {
+            return `Cloud sync unavailable: ${err.message || 'Firebase initialization failed.'}`;
+        }
+        return err.message || 'Google sign-in failed.';
+    }
+
     function updateAuthUI() {
+        const disableAuthActions = authBusy || !firebaseAuth;
         if (!authEnabled) {
             setAuthStatus(authDisabledReason, authStatusLevel || 'disconnected');
             if (googleSignInBtn) {
