@@ -81,7 +81,9 @@ Firebase is initialized at runtime only when valid config is present. There is n
 
 Config lookup order at startup:
 1. `window.RUNNING_COACH_FIREBASE_CONFIG` (from optional `config.js`).
-2. `./firebase-config.json` fetched at runtime.
+2. `window.FIREBASE_CONFIG` or `window.__FIREBASE_CONFIG__` (for host-injected runtime config).
+3. Inline JSON script tag with id `firebaseConfigJson`.
+4. `./firebase-config.json` fetched at runtime.
 
 If both are missing/invalid, auth stays disabled and `#authStatus` shows a clear error message.
 

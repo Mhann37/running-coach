@@ -1486,52 +1486,6 @@ body {
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
-.glance-strip {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-    margin-bottom: 14px;
-}
-
-.glance-card {
-    padding: 10px 8px;
-    border-radius: 18px;
-    border: 1px solid rgba(132, 153, 197, 0.16);
-    background: linear-gradient(170deg, rgba(23, 33, 51, 0.95) 0%, rgba(16, 24, 38, 0.95) 100%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-}
-
-.glance-ring {
-    width: 72px;
-    aspect-ratio: 1;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    font-size: 0.86rem;
-    font-weight: 700;
-    color: #f4f8ff;
-    background:
-        radial-gradient(circle at center, #121b2a 58%, transparent 60%),
-        conic-gradient(from 10deg, var(--ring, #53a2ff) 0 74%, rgba(255,255,255,0.13) 74% 100%);
-    box-shadow: 0 0 20px rgba(83, 162, 255, 0.22);
-    font-variant-numeric: tabular-nums;
-}
-
-.ring-blue { --ring: #74a9ff; }
-.ring-cyan { --ring: #14b8ff; }
-.ring-amber { --ring: #f2c14c; }
-
-.glance-label {
-    font-size: 0.62rem;
-    text-transform: uppercase;
-    letter-spacing: 1.2px;
-    color: var(--text-3);
-    font-weight: 700;
-}
-
 .mode-selector {
     background: #0e1524;
     border: 1px solid rgba(138, 155, 191, 0.16);
@@ -1610,11 +1564,6 @@ body {
 }
 
 @media (max-width: 420px) {
-    .glance-ring {
-        width: 62px;
-        font-size: 0.78rem;
-    }
-
     .app-nav-item {
         font-size: 0.66rem;
     }

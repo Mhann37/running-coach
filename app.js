@@ -151,9 +151,6 @@
     const speedEl          = document.getElementById('speed');
     const distanceEl       = document.getElementById('distance');
     const timeEl           = document.getElementById('time');
-    const glancePaceEl     = document.getElementById('glancePace');
-    const glanceDistanceEl = document.getElementById('glanceDistance');
-    const glanceTimeEl     = document.getElementById('glanceTime');
     const inclineEl        = document.getElementById('incline');
     const caloriesEl       = document.getElementById('calories');
     const coachingMessageEl = document.getElementById('coachingMessage');
@@ -535,12 +532,48 @@
         );
     }
 
-    async function loadFirebaseConfig() {
-        const configFromWindow = (typeof window !== 'undefined') ? window.RUNNING_COACH_FIREBASE_CONFIG : null;
-        if (isFirebaseConfigured(configFromWindow)) {
-            firebaseConfigSource = 'config.js';
-            return configFromWindow;
+    function getFirebaseConfigFromWindow() {
+        if (typeof window === 'undefined') return null;
+        const candidates = [
+            { name: 'RUNNING_COACH_FIREBASE_CONFIG', value: window.RUNNING_COACH_FIREBASE_CONFIG },
+            { name: 'FIREBASE_CONFIG', value: window.FIREBASE_CONFIG },
+            { name: '__FIREBASE_CONFIG__', value: window.__FIREBASE_CONFIG__ }
+        ];
+
+        for (const candidate of candidates) {
+            if (isFirebaseConfigured(candidate.value)) {
+                firebaseConfigSource = `window.${candidate.name}`;
+                return candidate.value;
+            }
         }
+
+        return null;
+    }
+
+    function getFirebaseConfigFromInlineJsonScript() {
+        if (typeof document === 'undefined') return null;
+        const scriptEl = document.getElementById('firebaseConfigJson');
+        if (!scriptEl) return null;
+
+        try {
+            const parsed = JSON.parse(scriptEl.textContent || '{}');
+            if (isFirebaseConfigured(parsed)) {
+                firebaseConfigSource = '#firebaseConfigJson';
+                return parsed;
+            }
+        } catch (e) {
+            log(`Inline Firebase config parse error: ${e.message}`);
+        }
+
+        return null;
+    }
+
+    async function loadFirebaseConfig() {
+        const configFromWindow = getFirebaseConfigFromWindow();
+        if (isFirebaseConfigured(configFromWindow)) return configFromWindow;
+
+        const configFromInlineJson = getFirebaseConfigFromInlineJsonScript();
+        if (isFirebaseConfigured(configFromInlineJson)) return configFromInlineJson;
 
         try {
             const response = await fetch(FIREBASE_JSON_CONFIG_PATH, { cache: 'no-store' });
@@ -1535,9 +1568,6 @@
             timeEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         }
 
-        if (glancePaceEl) glancePaceEl.textContent = paceEl.textContent;
-        if (glanceDistanceEl) glanceDistanceEl.textContent = displayDist.toFixed(2);
-        if (glanceTimeEl) glanceTimeEl.textContent = timeEl.textContent;
 
         const displayCal = sd ? sd.calories : data.calories;
         inclineEl.textContent  = data.incline.toFixed(1);
