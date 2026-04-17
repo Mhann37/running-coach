@@ -105,7 +105,7 @@
     // Firebase Auth / Firestore state
     let authUser      = null;
     let authEnabled  = false; // true only when Firebase config is available
-    let authDisabledReason = 'Cloud sync unavailable: Firebase config missing.';
+    let authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
     let firebaseAuth  = null;
     let firebaseDb    = null;
     let firebaseConfig = null;
@@ -604,8 +604,8 @@
             firebaseConfig = await loadFirebaseConfig();
             if (!isFirebaseConfigured(firebaseConfig)) {
                 authEnabled = false;
-                authDisabledReason = 'Cloud sync unavailable: Firebase config missing.';
-                log('Firebase init failed: no valid config found in window.RUNNING_COACH_FIREBASE_CONFIG/window.FIREBASE_CONFIG/window.__FIREBASE_CONFIG__, #firebaseConfigJson, or firebase-config.json.');
+                authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
+                log('Firebase init failed: config missing/invalid in window.RUNNING_COACH_FIREBASE_CONFIG and firebase-config.json.');
                 updateAuthUI();
                 return;
             }
@@ -617,7 +617,7 @@
             firebaseAuth = firebase.auth();
             firebaseDb = firebase.firestore();
             authEnabled = true;
-            authDisabledReason = 'Cloud sync unavailable: Firebase config missing.';
+            authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
 
             updateAuthUI();
 
