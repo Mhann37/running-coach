@@ -594,6 +594,13 @@
 
     async function initFirebaseAuth() {
         try {
+            if (typeof location !== 'undefined' && location.protocol === 'file:') {
+                authEnabled = false;
+                authDisabledReason = 'Google sign-in requires HTTPS/localhost; file:// is unsupported for OAuth.';
+                updateAuthUI();
+                return;
+            }
+
             if (typeof firebase === 'undefined') {
                 authEnabled = false;
                 authDisabledReason = 'Cloud sync unavailable right now.';
