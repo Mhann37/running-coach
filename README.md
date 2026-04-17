@@ -45,7 +45,7 @@ A static web app that turns a Chrome-on-Android phone into a coaching head-unit 
 - Target-vs-actual speed band with an `Under` / `On target` / `Over` pill (workout block target, or Goal Run required pace ±0.5 km/h).
 - Goal Run: an explicit `Required / Current / Gap` row.
 - Coach feedback every 15 s on-screen. **Coaching modes** — Quiet (screen only), Spoken (screen + `speechSynthesis`), Haptic (screen + `navigator.vibrate`). Sparse, debounced audible/haptic triggers: block transitions, HR zone changes, sustained drift off the target band, and goal / workout completion.
-- Speed / incline control via FTMS control point when supported (presets: 7, 12.5, 15 km/h).
+- Speed control via FTMS control point when supported (large presets: 7, 9, 11, 13, 15 km/h). Incline controls are intentionally hidden in run mode to keep the UI compact.
 
 ### Post-run
 - **Review-run modal** with mode badge (Free Run / Goal Run / workout name) + support-mode + coaching-mode meta.
@@ -81,7 +81,9 @@ Firebase is initialized at runtime only when valid config is present. There is n
 
 Config lookup order at startup:
 1. `window.RUNNING_COACH_FIREBASE_CONFIG` (from optional `config.js`).
-2. `./firebase-config.json` fetched at runtime.
+2. `window.FIREBASE_CONFIG` or `window.__FIREBASE_CONFIG__` (for host-injected runtime config).
+3. Inline JSON script tag with id `firebaseConfigJson`.
+4. `./firebase-config.json` fetched at runtime.
 
 If both are missing/invalid, auth stays disabled and `#authStatus` shows a clear error message.
 
