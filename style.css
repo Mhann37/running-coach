@@ -791,3 +791,256 @@
             background-image: none;
             margin-bottom: 4px;
         }
+
+        /* ──────────────────────────────────────────────────────────────────
+           Section 1 additions: status chips, mode selector, capability
+           summary, primary CTA, secondary (collapsible) cards.
+           ────────────────────────────────────────────────────────────────── */
+
+        /* Legacy hidden block — holds old connectBtn/status elements referenced by JS */
+        .legacy-hidden { display: none !important; }
+
+        /* Chip row */
+        .chip-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .chip {
+            flex: 1 1 0;
+            min-width: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: var(--surface);
+            background-image: var(--card-grad);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 8px 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
+            font-family: 'Space Grotesk', sans-serif;
+            color: var(--text-2);
+            cursor: default;
+            text-align: left;
+        }
+        .chip-tappable {
+            cursor: pointer;
+            transition: background 0.13s, border-color 0.13s;
+        }
+        .chip-tappable:hover { background: var(--surface-2); border-color: var(--border-2); }
+        .chip-tappable:active { transform: scale(0.98); }
+
+        .chip-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--text-3);
+            flex-shrink: 0;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.03);
+        }
+        .chip-label {
+            font-size: 0.54em;
+            font-weight: 700;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 1.1px;
+            flex-shrink: 0;
+        }
+        .chip-value {
+            font-size: 0.68em;
+            font-weight: 600;
+            color: var(--text-1);
+            letter-spacing: 0.2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+
+        .chip.connected  .chip-dot { background: var(--green);  box-shadow: 0 0 0 2px rgba(47,201,138,0.18); }
+        .chip.connected  .chip-value { color: var(--green); }
+        .chip.reconnecting .chip-dot { background: var(--amber); animation: chip-pulse 1.2s infinite; }
+        .chip.reconnecting .chip-value { color: var(--amber); }
+        .chip.connecting   .chip-dot { background: var(--amber); animation: chip-pulse 1.2s infinite; }
+        .chip.connecting   .chip-value { color: var(--amber); }
+        .chip.disconnected .chip-dot { background: var(--text-3); }
+        .chip.readonly .chip-value     { color: var(--amber); }
+        .chip.controllable .chip-value { color: var(--green); }
+
+        @keyframes chip-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+        /* Today's Run card */
+        .today-card { display: block; }
+
+        /* Mode selector */
+        .mode-selector {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 16px;
+            background: rgba(0,0,0,0.25);
+            padding: 4px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        .btn-mode {
+            flex: 1;
+            background: transparent;
+            color: var(--text-3);
+            border: none;
+            padding: 10px 6px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.72em;
+            font-weight: 700;
+            border-radius: 9px;
+            cursor: pointer;
+            transition: background 0.13s, color 0.13s;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            position: relative;
+        }
+        .btn-mode:hover:not(:disabled) { color: var(--text-2); }
+        .btn-mode.active {
+            background: var(--surface-2);
+            color: var(--text-1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+        }
+        .btn-mode:disabled { opacity: 0.45; cursor: not-allowed; }
+        .mode-coming {
+            display: block;
+            font-size: 0.62em;
+            font-weight: 700;
+            color: var(--text-3);
+            letter-spacing: 0.6px;
+            margin-top: 2px;
+            text-transform: uppercase;
+        }
+
+        /* Goal input section spacing */
+        .goal-input-section { }
+        #goalInputsWrap[hidden] { display: none; }
+
+        /* Capability summary */
+        .capability-summary {
+            margin-top: 12px;
+            margin-bottom: 14px;
+            padding: 12px 14px;
+            background: rgba(255,255,255,0.025);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+        .capability-summary.hidden { display: none; }
+        .cap-title {
+            font-size: 0.54em;
+            font-weight: 700;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 1.1px;
+            margin-bottom: 8px;
+        }
+        .cap-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .cap-item {
+            font-size: 0.66em;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 999px;
+            letter-spacing: 0.2px;
+            border: 1px solid var(--border);
+        }
+        .cap-item.on  { color: var(--green);   background: rgba(47,201,138,0.10); border-color: rgba(47,201,138,0.20); }
+        .cap-item.off { color: var(--text-3);  background: rgba(255,255,255,0.02); }
+
+        /* Primary CTA */
+        .btn-primary-cta {
+            width: 100%;
+            background: var(--red);
+            color: #fff;
+            border: none;
+            padding: 15px;
+            margin-top: 4px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.92em;
+            font-weight: 700;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            box-shadow: 0 3px 16px rgba(224,57,78,0.32);
+        }
+        .btn-primary-cta:hover  { background: #c82f42; }
+        .btn-primary-cta:active { transform: scale(0.98); }
+        .btn-primary-cta:disabled {
+            background: var(--surface-2);
+            color: var(--text-3);
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+        .btn-primary-cta[data-action="start"] {
+            background: var(--green);
+            box-shadow: 0 3px 16px rgba(47,201,138,0.30);
+        }
+        .btn-primary-cta[data-action="start"]:hover { background: #28b87d; }
+
+        .cta-hint {
+            margin-top: 9px;
+            font-size: 0.66em;
+            color: var(--text-3);
+            text-align: center;
+            font-weight: 500;
+            line-height: 1.5;
+        }
+
+        /* Secondary (collapsible) cards — Account, PBs, Debug */
+        .card-secondary {
+            background: rgba(255,255,255,0.02);
+            background-image: none;
+            box-shadow: none;
+            padding: 14px 18px;
+            margin-bottom: 8px;
+        }
+        .card-secondary[open] {
+            background: var(--surface);
+            background-image: var(--card-grad);
+            box-shadow: var(--card-shadow);
+            padding: 16px 20px;
+        }
+        .secondary-summary {
+            cursor: pointer;
+            list-style: none;
+            font-size: 0.62em;
+            font-weight: 700;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            user-select: none;
+            padding: 4px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .secondary-summary::-webkit-details-marker { display: none; }
+        .secondary-summary::after {
+            content: "▾";
+            font-size: 1.2em;
+            color: var(--text-3);
+            transition: transform 0.15s;
+        }
+        details[open] .secondary-summary::after { transform: rotate(180deg); }
+        .card-secondary[open] .pb-empty,
+        .card-secondary[open] .pb-table,
+        .card-secondary[open] .status,
+        .card-secondary[open] .btn-secondary,
+        .card-secondary[open] .debug { margin-top: 12px; }
+
+        /* State-specific hiding: hide the pre-run mode selector & CTA while active */
+        body[data-state="active"] #modeSelector,
+        body[data-state="active"] #ctaHint {
+            display: none;
+        }
+        body[data-state="active"] #goalCard .card-title { display: none; }
+
+        /* In pre-run, hide the goal-summary block (it's session-active UI) */
+        body[data-state="prerun"] .goal-summary { display: none !important; }

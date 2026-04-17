@@ -36,6 +36,11 @@
     let goalTime                    = null;
     let goalConfirmed               = false;
 
+    // Session mode: 'free' | 'goal' | 'workout'. Workout mode is reserved for Section 2.
+    let sessionMode                 = 'free';
+    // App state: 'prerun' | 'active' | 'postrun'.
+    let appState                    = 'prerun';
+
     // Firebase Auth / Firestore state
     let authUser      = null;
     let authEnabled  = false; // true only when Firebase config is filled
@@ -107,6 +112,24 @@
     const preset12Btn   = document.getElementById('preset12');
     const preset15Btn   = document.getElementById('preset15');
 
+    // Chip row + mode selector + capability refs
+    const treadmillChip      = document.getElementById('treadmillChip');
+    const treadmillChipText  = document.getElementById('treadmillChipText');
+    const hrChip             = document.getElementById('hrChip');
+    const hrChipText         = document.getElementById('hrChipText');
+    const supportModeChip    = document.getElementById('supportModeChip');
+    const supportModeChipText= document.getElementById('supportModeChipText');
+    const modeSelector       = document.getElementById('modeSelector');
+    const modeFreeBtn        = document.getElementById('modeFreeBtn');
+    const modeGoalBtn        = document.getElementById('modeGoalBtn');
+    const modeWorkoutBtn     = document.getElementById('modeWorkoutBtn');
+    const modeHeader         = document.getElementById('modeHeader');
+    const modeSubtext        = document.getElementById('modeSubtext');
+    const goalInputsWrap     = document.getElementById('goalInputsWrap');
+    const capabilitySummary  = document.getElementById('capabilitySummary');
+    const capListEl          = document.getElementById('capList');
+    const ctaHintEl          = document.getElementById('ctaHint');
+
     const hrConnectBtn   = document.getElementById('hrConnectBtn');
     const hrStatusDiv    = document.getElementById('hrStatus');
     const hrMetricWrap   = document.getElementById('hrMetricWrap');
@@ -167,6 +190,13 @@
     refreshPersonalBestsVisibility();
     initFirebaseAuth();
 
+    // Initial chip + CTA + state rendering (pre-run, disconnected).
+    setSessionMode('free');
+    setAppState('prerun');
+    renderStatusChips();
+    renderCapabilitySummary();
+    updatePrimaryCTA();
+
     // ── Event listeners ────────────────────────────────────────────────────────
     googleSignInBtn.addEventListener('click', async () => {
         if (!authEnabled || !firebaseAuth) return;
@@ -202,6 +232,15 @@
         }
     });
 
+    // Treadmill chip acts as the compact connect/disconnect control
+    treadmillChip.addEventListener('click', () => connectBtn.click());
+    hrChip.addEventListener('click', () => hrConnectBtn.click());
+
+    // Session mode selector
+    modeFreeBtn.addEventListener('click', () => setSessionMode('free'));
+    modeGoalBtn.addEventListener('click', () => setSessionMode('goal'));
+    // Workout mode is reserved for a later pass — button stays disabled.
+
     speedUpBtn.addEventListener('click',    () => adjustSpeed(SPEED_STEP));
     speedDownBtn.addEventListener('click',  () => adjustSpeed(-SPEED_STEP));
     inclineUpBtn.addEventListener('click',  () => adjustIncline(INCLINE_STEP));
@@ -210,7 +249,14 @@
     preset12Btn.addEventListener('click',   () => setTargetSpeed(12.5));
     preset15Btn.addEventListener('click',   () => setTargetSpeed(15));
 
-    setGoalBtn.addEventListener('click', confirmGoal);
+    setGoalBtn.addEventListener('click', () => {
+        const action = setGoalBtn.dataset.action || 'connect';
+        if (action === 'connect') {
+            connectBtn.click();
+        } else if (action === 'start') {
+            confirmGoal();
+        }
+    });
     editGoalBtn.addEventListener('click', () => {
         goalSummary.classList.remove('active');
         goalInputSection.style.display = '';
@@ -485,19 +531,24 @@
 
     // ── Goal logic ─────────────────────────────────────────────────────────────
     function confirmGoal() {
-        const dVal = parseFloat(goalDistanceInput.value);
-        const tVal = parseFloat(goalTimeInput.value);
-
-        goalDistance  = (!isNaN(dVal) && dVal > 0) ? dVal : null;
-        goalTime      = (!isNaN(tVal) && tVal > 0) ? tVal : null;
+        // Only parse goal values when the user is actually in Goal Run mode.
+        if (sessionMode === 'goal') {
+            const dVal = parseFloat(goalDistanceInput.value);
+            const tVal = parseFloat(goalTimeInput.value);
+            goalDistance = (!isNaN(dVal) && dVal > 0) ? dVal : null;
+            goalTime     = (!isNaN(tVal) && tVal > 0) ? tVal : null;
+        } else {
+            goalDistance = null;
+            goalTime     = null;
+        }
         goalConfirmed = true;
 
         let parts = [];
         if (goalDistance) parts.push(`${goalDistance} km`);
         if (goalTime)     parts.push(`${goalTime} min`);
-        const summaryStr = parts.length
+        const summaryStr = (sessionMode === 'goal' && parts.length)
             ? `🎯 Goal: ${parts.join(' · ')}`
-            : '🎯 No target set — running freely';
+            : '🏃 Free Run — no target';
 
         goalSummaryText.textContent = summaryStr;
         goalSummary.classList.add('active');
@@ -506,7 +557,13 @@
         distanceProgress.classList.toggle('active', !!goalDistance);
         timeProgress.classList.toggle('active', !!goalTime);
 
-        log(`Goal set — distance: ${goalDistance} km, time: ${goalTime} min`);
+        // Bring the active-run UI online now.
+        metricsCard.classList.remove('hidden');
+        coachingCard.classList.add('active');
+        sessionControlsEl.classList.add('active');
+        setAppState('active');
+
+        log(`Session started — mode: ${sessionMode}, distance: ${goalDistance} km, time: ${goalTime} min`);
 
         // Restart coaching timer (may have been stopped by finishSession)
         startCoachingTimer();
@@ -562,6 +619,7 @@
         stopModalBest1kEl.textContent = best1kStr;
 
         stopModal.classList.add('active');
+        setAppState('postrun');
         // Stop coaching while modal is open
         stopCoachingTimer();
     }
@@ -591,11 +649,19 @@
         distanceProgress.classList.remove('active');
         timeProgress.classList.remove('active');
 
+        // Hide the live-run cards; return to pre-run layout.
+        metricsCard.classList.add('hidden');
+        coachingCard.classList.remove('active');
+        sessionControlsEl.classList.remove('active');
+
         // Set idle coaching message (no timer restart — waits for next goal confirm)
         coachingMessageEl.innerHTML =
-            '<strong>⏸️ Ready when you are</strong>' +
-            'Set a new goal above, then tap Let\'s Go! to start your next run.';
+            '<strong>Ready when you are</strong>' +
+            'Connect your treadmill, choose a mode, then tap the primary button to start.';
         coachTimerEl.textContent = '';
+
+        setAppState('prerun');
+        updatePrimaryCTA();
 
         log('Session finished — ready for next run');
     }
@@ -644,16 +710,18 @@
     }
 
     function onConnected() {
-        metricsCard.classList.remove('hidden');
-        coachingCard.classList.add('active');
-        goalCard.classList.add('active');
-        sessionControlsEl.classList.add('active');
+        // On connect we're still pre-run. User must confirm Start Run / Let's Go
+        // to enter the active state. So we do NOT show metrics / coach / session
+        // controls here — those come online when confirmGoal() fires.
         connectBtn.textContent = 'Disconnect';
         reconnectAttempts = 0;
 
+        renderStatusChips();
+        renderCapabilitySummary();
+        updatePrimaryCTA();
+
         // Session-relative state is NOT initialised here — lazy-init on first packet.
         resetSessionState();
-        startCoachingTimer();
     }
 
     function disconnect() {
@@ -723,6 +791,10 @@
         enableControls(false);
         controlPointCharacteristic = null;
         updateStatus('disconnected', 'Disconnected');
+        setAppState('prerun');
+        renderStatusChips();
+        renderCapabilitySummary();
+        updatePrimaryCTA();
         // Close stop modal if open (except when we intentionally keep it open).
         if (closeStopModal) stopModal.classList.remove('active');
     }
@@ -766,6 +838,8 @@
     }
 
     function updateHRDisplay(bpm) {
+        // Refresh capability summary lazily in case HR-from-treadmill just appeared.
+        renderCapabilitySummary();
         if (bpm <= 0) { hrMetricWrap.classList.add('hidden'); return; }
         hrMetricEl.textContent = bpm;
         let zoneClass, zoneText;
@@ -813,6 +887,8 @@
     function updateHRStatus(state, message) {
         hrStatusDiv.className = `status ${state}`;
         hrStatusDiv.textContent = message;
+        renderStatusChips();
+        renderCapabilitySummary();
     }
 
     // ── Speed / Incline ────────────────────────────────────────────────────────
@@ -1584,6 +1660,128 @@
     function updateStatus(state, message) {
         statusDiv.className = `status ${state}`;
         statusDiv.textContent = message;
+        renderStatusChips();
+        updatePrimaryCTA();
+    }
+
+    // ── Section 1: app state, session mode, chips, capability, CTA ────────────
+    function setAppState(next) {
+        appState = next;
+        document.body.setAttribute('data-state', next);
+    }
+
+    function setSessionMode(mode) {
+        if (mode === 'workout') return; // reserved for Section 2
+        sessionMode = mode;
+        [modeFreeBtn, modeGoalBtn, modeWorkoutBtn].forEach(btn => {
+            if (!btn) return;
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
+        // Show/hide goal inputs based on mode.
+        if (goalInputsWrap) goalInputsWrap.hidden = (mode !== 'goal');
+
+        if (modeHeader && modeSubtext) {
+            if (mode === 'free') {
+                modeHeader.textContent = 'Set out and run at your own pace.';
+                modeSubtext.textContent = 'No target, no pressure — coach reacts to your effort.';
+            } else if (mode === 'goal') {
+                modeHeader.textContent = 'Pick a distance or time target.';
+                modeSubtext.textContent = 'Coach will push/pull you to hit it. Leave one blank for a simpler goal.';
+            }
+        }
+        updatePrimaryCTA();
+    }
+
+    function getSupportMode() {
+        if (!device || !device.gatt || !device.gatt.connected) return 'disconnected';
+        return controlPointCharacteristic ? 'controllable' : 'readonly';
+    }
+
+    function supportModeLabel(mode) {
+        switch (mode) {
+            case 'controllable': return 'Controllable FTMS';
+            case 'readonly':     return 'Read-only FTMS';
+            default:             return 'Disconnected';
+        }
+    }
+
+    function renderStatusChips() {
+        if (!treadmillChip) return;
+        const tConnected   = !!(device && device.gatt && device.gatt.connected);
+        const tState       = (statusDiv && statusDiv.className.replace('status','').trim()) || (tConnected ? 'connected' : 'disconnected');
+        const tName        = (device && device.name) ? device.name : '';
+        treadmillChip.className = `chip chip-tappable ${tState}`;
+        treadmillChipText.textContent = tConnected
+            ? (tName || 'Connected')
+            : (tState === 'connecting' || tState === 'reconnecting' ? 'Connecting…' : 'Not connected');
+
+        const hrConnected = !!(hrDevice && hrDevice.gatt && hrDevice.gatt.connected);
+        const hrState     = (hrStatusDiv && hrStatusDiv.className.replace('status','').trim()) || (hrConnected ? 'connected' : 'disconnected');
+        hrChip.className = `chip chip-tappable ${hrState}`;
+        hrChipText.textContent = hrConnected
+            ? (hrDevice.name || 'On')
+            : (hrState === 'connecting' || hrState === 'reconnecting' ? 'Connecting…' : 'Off');
+
+        const sm = getSupportMode();
+        supportModeChip.className = `chip ${sm}`;
+        supportModeChipText.textContent = supportModeLabel(sm);
+    }
+
+    function renderCapabilitySummary() {
+        if (!capabilitySummary || !capListEl) return;
+        const connected = !!(device && device.gatt && device.gatt.connected);
+        if (!connected) {
+            capabilitySummary.classList.add('hidden');
+            capListEl.innerHTML = '';
+            return;
+        }
+        const hasControl = !!controlPointCharacteristic;
+        const hasExtHR   = !!(hrDevice && hrDevice.gatt && hrDevice.gatt.connected);
+        const hasFtmsHR  = !hasExtHR && (lastData && lastData.heartRate > 0);
+
+        // Speed/distance/incline/calories/time are standard FTMS treadmill fields.
+        // We only flag a capability "on" if we've truly observed or expect it.
+        const items = [
+            { label: 'Speed',    on: true },
+            { label: 'Distance', on: true },
+            { label: 'Incline',  on: true },
+            { label: 'Calories', on: true },
+            { label: hasExtHR ? 'HR (external)' : (hasFtmsHR ? 'HR (treadmill)' : 'HR'),
+              on: hasExtHR || hasFtmsHR },
+            { label: hasControl ? 'Control enabled' : 'Control unavailable',
+              on: hasControl }
+        ];
+
+        capListEl.innerHTML = items
+            .map(i => `<span class="cap-item ${i.on ? 'on' : 'off'}">${i.label}</span>`)
+            .join('');
+        capabilitySummary.classList.remove('hidden');
+    }
+
+    function updatePrimaryCTA() {
+        if (!setGoalBtn) return;
+        const connected = !!(device && device.gatt && device.gatt.connected);
+        const connecting = statusDiv && /connecting|reconnecting/.test(statusDiv.className);
+
+        if (!connected && !connecting) {
+            setGoalBtn.textContent = 'Connect Treadmill';
+            setGoalBtn.dataset.action = 'connect';
+            setGoalBtn.disabled = false;
+            if (ctaHintEl) ctaHintEl.textContent = 'Tap to pair via Bluetooth (Chrome on Android).';
+        } else if (connecting) {
+            setGoalBtn.textContent = 'Connecting…';
+            setGoalBtn.dataset.action = 'connect';
+            setGoalBtn.disabled = true;
+            if (ctaHintEl) ctaHintEl.textContent = '';
+        } else {
+            // connected
+            setGoalBtn.textContent = sessionMode === 'goal' ? "Let's Go" : 'Start Run';
+            setGoalBtn.dataset.action = 'start';
+            setGoalBtn.disabled = false;
+            if (ctaHintEl) ctaHintEl.textContent = sessionMode === 'goal'
+                ? 'Leave a field blank to run against a simpler target.'
+                : 'Free Run — coach reacts to your effort.';
+        }
     }
 
     function log(message) {

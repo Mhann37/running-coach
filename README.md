@@ -1,171 +1,84 @@
-# Running Coach - Treadmill BLE Prototype
+# Running Coach — Treadmill-first BLE Alpha
 
-A real-time running coach web app that connects to your Black Lord treadmill via Bluetooth Low Energy (BLE) and provides live coaching feedback.
+A static web app that turns a Chrome-on-Android phone into a coaching head-unit for your Bluetooth-LE treadmill. It connects directly to any FTMS-compatible treadmill (tested against a Black Lord **FS-4FF13D**), optionally pairs with a BLE heart-rate monitor, and surfaces live pace-aware coaching.
 
-## 🚀 Quick Start
+## Requirements
 
-### Option 1: Test Locally (Immediate)
+- Android phone running **Chrome** (Web Bluetooth is Chrome-on-Android only — Firefox, Safari, Samsung Internet, and desktop Chrome are not supported for Web Bluetooth).
+- Bluetooth enabled on the phone.
+- An FTMS-compatible treadmill powered on and not already paired to another app (e.g. Fit Show).
+- HTTPS or `file://` origin (GitHub Pages and local files both work).
 
-1. **Download the file:**
-   - Download `index.html` from this repo
-   - Transfer it to your Android phone
+## Quick start
 
-2. **Open in Chrome:**
-   - Open the `index.html` file in **Chrome browser** on your Android phone
-   - Make sure your treadmill is turned on and Bluetooth is enabled
+**Local on Android:**
+1. Download `index.html`, `style.css`, `app.js`, `manifest.json`, `icon-192.png` onto the phone.
+2. Open `index.html` in Chrome.
+3. Tap **Connect Treadmill** on the Today's Run card, choose your treadmill in the BLE picker, then **Start Run** / **Let's Go**.
 
-3. **Connect:**
-   - Tap "Connect to Treadmill"
-   - Select your treadmill (FS-4FF13D) from the Bluetooth dialog
-   - Start running!
+**Deployed:**
+- `https://mhann37.github.io/running-coach/` (auto-deploys from `main` via GitHub Pages).
 
-### Option 2: Deploy to GitHub Pages (Recommended)
+## What it does today
 
-1. **Enable GitHub Pages:**
-   - Go to your repo Settings → Pages
-   - Source: Deploy from a branch
-   - Branch: `main` → `/root`
-   - Save
+### Pre-run
+- **Today's Run** card with three session modes:
+  - **Free Run** — no target, coach reacts to effort.
+  - **Goal Run** — distance and/or time target with pace-aware feedback.
+  - **Workout** — placeholder, wired in a later pass.
+- A compact **status chip row** near the top showing treadmill, HR, and support-mode status at a glance.
+- **Truthful support classification** on connect:
+  - **Controllable FTMS** — treadmill exposes a control point; speed & incline can be set from the app.
+  - **Read-only FTMS** — treadmill exposes data but no control point; controls UI stays hidden.
+  - **Disconnected** — no BLE link.
+- A **capability summary** lists the signals actually available (Speed, Distance, Incline, Calories, HR source, Control).
 
-2. **Access your app:**
-   - Wait 1-2 minutes for deployment
-   - Visit: `https://mhann37.github.io/running-coach/`
-   - Open this URL in Chrome on your Android phone
+### Active run
+- Live metrics: speed, pace, distance, time, incline, calories.
+- Heart rate from an external BLE HR monitor, or from the treadmill's FTMS packet as fallback (flag `0x100`). HR zone is labelled Easy / Aerobic / Tempo / Threshold / Max.
+- Goal progress bars (Goal Run).
+- Coach feedback every 15 s, with pace-drift messages when both distance and time goals are set.
+- Speed / incline control via FTMS control point when supported (presets: 7, 12.5, 15 km/h).
 
-3. **Connect and run:**
-   - Tap "Connect to Treadmill"
-   - Select FS-4FF13D from the list
-   - Start your workout!
+### Post-run
+- Stop-Run modal summarises distance, time, calories, avg pace, best 1 km pace, before Save / Discard.
+- Local history (last 10 runs) in `localStorage`; optional Firestore sync when signed in with Google.
+- Personal Bests (1–10 km) computed from split data.
 
-## 📱 Requirements
+## BLE details
 
-- **Android phone** with Chrome browser
-- **Bluetooth** enabled
-- **Black Lord treadmill** (FS-4FF13D) turned on
-- **HTTPS** (required for Web Bluetooth API)
-  - Local file:// works
-  - GitHub Pages works (auto HTTPS)
+- **Treadmill service** `0x1826` (FTMS), Treadmill Data `0x2ACD` (notify), Control Point `0x2AD9` (write).
+- **HR service** `0x180D`, HR Measurement `0x2A37` (notify).
+- Reconnect loop: up to 5 attempts with linear back-off (`attempt × 1500 ms`) on involuntary disconnects.
 
-## ✨ Features (Current Prototype)
+## Files
 
-### Real-time Metrics Display
-- **Pace** (min/km) - calculated from speed
-- **Speed** (km/h) - raw treadmill data
-- **Distance** (km) - cumulative distance
-- **Time** - elapsed workout time
-- **Incline** (%) - current incline percentage
-- **Calories** - energy expenditure
+- `index.html` — structure
+- `style.css` — styles
+- `app.js` — all runtime logic
+- `manifest.json` — PWA manifest
+- `icon-192.png` / `icon-512.png` — app icons
+- `CLAUDE.md` — architecture notes for AI coding sessions
 
-### Basic Coaching Feedback (every 15 seconds)
-- **Warm-up guidance** (< 5 km/h)
-- **Easy pace** (5-8 km/h) - aerobic base building
-- **Tempo pace** (8-11 km/h) - controlled effort
-- **Speed work** (> 11 km/h) - high intensity
-- **Incline feedback** - when incline > 2%
-- **Distance milestones** - every 1km
+No build step, no modules, no bundler. Firebase (auth + Firestore) is loaded from a CDN in `index.html`.
 
-### Debug Panel
-- View raw BLE connection logs
-- Monitor data parsing
-- Troubleshoot connection issues
+## Troubleshooting
 
-## 🔧 Technical Details
+**"Web Bluetooth not supported"** — use Chrome on Android.
 
-### BLE Protocol
-- **Service:** FTMS (Fitness Machine Service) - UUID `0x1826`
-- **Characteristic:** Treadmill Data - UUID `0x2ACD`
-- **Update Rate:** ~1-2 seconds (automatic notifications)
+**Can't find treadmill in BLE picker** — make sure the treadmill is on, Bluetooth is enabled, and no other app (e.g. Fit Show) is already paired.
 
-### Data Parsed
-- Instantaneous Speed
-- Total Distance
-- Incline/Ramp Angle
-- Expended Energy
-- Elapsed Time
-- Heart Rate (if external monitor connected)
+**Metrics show 0.0 / --:--** — the treadmill only emits most fields when the belt is actually moving. Check the Debug details section for parsing errors.
 
-## 🐛 Troubleshooting
+**Connection drops** — keep the phone within ~10 m of the treadmill and prevent the screen from sleeping during the run.
 
-### "Web Bluetooth not supported"
-- **Solution:** Use Chrome browser on Android (not Safari, Firefox, or Samsung Internet)
+## Known limitations
 
-### Can't find treadmill in Bluetooth dialog
-- **Check:** Treadmill is powered on
-- **Check:** Bluetooth enabled on phone
-- **Check:** Treadmill not already connected to another device (Fit Show app)
-- **Try:** Restart treadmill Bluetooth
+- Workout-mode structured workouts are not yet wired (mode button is disabled).
+- No Strava / Garmin sync.
+- Cadence is not reported — treadmills don't provide a reliable cadence signal, so it's deliberately omitted.
+- Signal strength / RSSI is not available through the Web Bluetooth API and is therefore not shown.
 
-### Metrics show 0.0 or --:--
-- **Check:** Treadmill is actually running (belt moving)
-- **Check:** Look at Debug panel for parsing errors
-- **Note:** Some metrics only appear when treadmill is in motion
-
-### Connection drops frequently
-- **Check:** Phone stays close to treadmill (BLE range ~10m)
-- **Check:** Phone screen doesn't lock (keeps BLE connection alive)
-- **Tip:** Set screen timeout to "Never" during workouts
-
-## 🎯 Next Steps / Roadmap
-
-### Phase 2 - Enhanced Coaching
-- [ ] AI-powered coaching via Gemini/Claude API
-- [ ] Personalized feedback based on training zones
-- [ ] Workout plan integration (intervals, tempo runs)
-- [ ] Voice coaching (text-to-speech)
-
-### Phase 3 - Data & History
-- [ ] Save workout history (Firebase/Supabase)
-- [ ] Analyze trends and progress
-- [ ] Export to Strava/Garmin
-
-### Phase 4 - Advanced Features
-- [ ] Control treadmill speed/incline programmatically
-- [ ] Pre-programmed workouts
-- [ ] External heart rate monitor support (Whoop, Polar, etc.)
-- [ ] Multi-user profiles
-
-## 📊 What Data Can We Access?
-
-Based on your nRF Connect scan, your treadmill supports:
-
-✅ **Currently Used:**
-- Instantaneous Speed
-- Total Distance
-- Incline
-- Elapsed Time
-- Calories
-
-✅ **Available (Not Yet Used):**
-- Resistance Level
-- Step Count
-- Power Measurement
-- Elevation Gain
-- Heart Rate (from external sensors)
-
-✅ **Control Capabilities:**
-- Speed target setting
-- Incline target setting
-- Resistance target setting
-- Power target setting
-
-## 🏗️ Tech Stack
-
-- **Frontend:** Pure HTML/CSS/JavaScript (no framework)
-- **BLE API:** Web Bluetooth API
-- **Deployment:** GitHub Pages (static hosting)
-- **Future:** React/Next.js, Firebase, Gemini API
-
-## 📝 License
+## License
 
 MIT
-
-## 🤝 Contributing
-
-This is currently a prototype. Feel free to:
-- Test and report issues
-- Suggest features
-- Submit PRs
-
----
-
-**Built by Matt** | [GitHub](https://github.com/Mhann37/running-coach)
