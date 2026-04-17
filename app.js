@@ -116,6 +116,7 @@
     const FIREBASE_JSON_CONFIG_PATH = './firebase-config.json';
     let authBusy = false;
     let authBusyAction = null; // 'signin' | 'signout'
+    let authPersistenceMode = 'unknown';
 
     const AUTH_SIGN_IN_LABEL = 'Sign in with Google';
     const AUTH_SIGN_OUT_LABEL = 'Sign out';
@@ -298,9 +299,16 @@
 
     // ── Event listeners ────────────────────────────────────────────────────────
     googleSignInBtn.addEventListener('click', async () => {
-        if (!authEnabled || !firebaseAuth || authBusy) return;
+        if (authBusy) return;
+        if (!authEnabled || !firebaseAuth) {
+            const reason = authDisabledReason || 'Google sign-in is unavailable right now.';
+            setAuthStatus(reason, 'error');
+            captureAuthError(null, reason);
+            return;
+        }
         const provider = new firebase.auth.GoogleAuthProvider();
         setAuthBusy(true, 'signin');
+        setAuthStatus('Opening Google sign-in…', 'connecting');
         try {
             if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')) {
                 await firebaseAuth.signInWithRedirect(provider);
@@ -315,10 +323,12 @@
                     await firebaseAuth.signInWithRedirect(provider);
                     return;
                 } catch (redirectErr) {
+                    setAuthStatus(getAuthErrorMessage(redirectErr), 'error');
                     captureAuthError(redirectErr);
                     log(`Google sign-in redirect error: ${redirectErr.message}`);
                 }
             }
+            setAuthStatus(getAuthErrorMessage(e), 'error');
             captureAuthError(e);
             log(`Google sign-in error: ${e.message}`);
             setAuthBusy(false);
@@ -532,6 +542,7 @@
             `origin: ${(location && location.origin) || 'unknown'}`,
             `config source: ${firebaseConfigSource || 'not found'}`,
             `auth enabled: ${authEnabled ? 'yes' : 'no'}`,
+            `auth persistence: ${authPersistenceMode}`,
             `last auth error code: ${lastAuthErrorCode || 'none'}`,
             `last auth error message: ${lastAuthErrorMessage || 'none'}`
         ];
@@ -549,6 +560,37 @@
         authBusyAction = authBusy ? (action || authBusyAction || 'signin') : null;
         updateAuthUI();
         renderAuthDiagnostics();
+    }
+
+    function isAuthOriginSupported() {
+        if (typeof location === 'undefined') return false;
+        if (location.protocol === 'https:') return true;
+        if (location.protocol !== 'http:') return false;
+        const host = (location.hostname || '').toLowerCase();
+        return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+    }
+
+    async function configureAuthPersistence() {
+        if (!firebaseAuth || typeof firebase === 'undefined' || !firebase.auth || !firebase.auth.Auth || !firebase.auth.Auth.Persistence) {
+            authPersistenceMode = 'unknown';
+            return;
+        }
+
+        try {
+            await firebaseAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+            authPersistenceMode = 'local';
+        } catch (errLocal) {
+            try {
+                await firebaseAuth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+                authPersistenceMode = 'session';
+                captureAuthError(errLocal, 'Falling back to session auth persistence.');
+                log(`Auth persistence fallback (session): ${errLocal && errLocal.message ? errLocal.message : 'LOCAL persistence failed.'}`);
+            } catch (errSession) {
+                authPersistenceMode = 'none';
+                captureAuthError(errSession, 'Browser storage is unavailable; sign-in will not persist.');
+                log(`Auth persistence disabled: ${errSession && errSession.message ? errSession.message : 'SESSION persistence failed.'}`);
+            }
+        }
     }
 
     function getAuthErrorMessage(err, phase = 'auth') {
@@ -692,9 +734,10 @@
 
     async function initFirebaseAuth() {
         try {
-            if (typeof location !== 'undefined' && location.protocol === 'file:') {
+            if (!isAuthOriginSupported()) {
                 authEnabled = false;
-                authDisabledReason = 'Google sign-in requires HTTPS/localhost; file:// is unsupported for OAuth.';
+                const originText = (typeof location !== 'undefined' && location.origin) ? location.origin : 'this origin';
+                authDisabledReason = `Google sign-in requires HTTPS (or localhost). Current origin is ${originText}.`;
                 updateAuthUI();
                 return;
             }
@@ -722,6 +765,7 @@
             }
 
             firebaseAuth = firebase.auth();
+            await configureAuthPersistence();
             firebaseDb = firebase.firestore();
             authEnabled = true;
             authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
