@@ -13,8 +13,11 @@ A static web app that turns a Chrome-on-Android phone into a coaching head-unit 
 
 **Local on Android:**
 1. Download `index.html`, `style.css`, `app.js`, `manifest.json`, `icon-192.png` onto the phone.
-2. Open `index.html` in Chrome.
-3. Tap **Connect Treadmill** on the Today's Run card, choose your treadmill in the BLE picker, then **Start Run** / **Let's Go**.
+2. Add runtime Firebase config using **one** of these:
+   - Copy `config.example.js` to `config.js` and fill in your Firebase Web App config.
+   - Copy `firebase-config.example.json` to `firebase-config.json` and fill in the same values.
+3. Open `index.html` in Chrome.
+4. Tap **Connect Treadmill** on the Today's Run card, choose your treadmill in the BLE picker, then **Start Run** / **Let's Go**.
 
 **Deployed:**
 - `https://mhann37.github.io/running-coach/` (auto-deploys from `main` via GitHub Pages).
@@ -64,11 +67,72 @@ A static web app that turns a Chrome-on-Android phone into a coaching head-unit 
 - `index.html` — structure
 - `style.css` — styles
 - `app.js` — all runtime logic
+- `config.example.js` — template for local runtime Firebase config (`config.js` is gitignored)
+- `firebase-config.example.json` — template for generated runtime config JSON (`firebase-config.json` is gitignored)
 - `manifest.json` — PWA manifest
 - `icon-192.png` / `icon-512.png` — app icons
 - `CLAUDE.md` — architecture notes for AI coding sessions
 
 No build step, no modules, no bundler. Firebase (auth + Firestore) is loaded from a CDN in `index.html`.
+
+## Firebase runtime config strategy
+
+Firebase is initialized at runtime only when valid config is present. There is no inline config in source anymore.
+
+Config lookup order at startup:
+1. `window.RUNNING_COACH_FIREBASE_CONFIG` (from optional `config.js`).
+2. `./firebase-config.json` fetched at runtime.
+
+If both are missing/invalid, auth stays disabled and `#authStatus` shows a clear error message.
+
+`config.js` and `firebase-config.json` are intentionally gitignored. Commit only the example templates.
+
+## Firebase security/policy checklist (project operations)
+
+### 1) Firestore rules: lock data to `users/{uid}/...`
+
+Use strict per-user access controls so each user can only access their own document tree:
+
+```text
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+
+      match /{document=**} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+```
+
+### 2) Authentication hardening
+
+In Firebase Console:
+- Enable only required providers (Google for this app).
+- Disable all unused providers.
+- Restrict **Authorized domains** to production/staging origins only (plus localhost only if explicitly needed for development).
+
+### 3) App Check (Web)
+
+Enable Firebase App Check for web where feasible:
+- Preferred: reCAPTCHA Enterprise.
+- Fallback: reCAPTCHA v3.
+- Enforce App Check for Firestore/Auth after rollout validation.
+- Keep debug tokens limited to development environments.
 
 ## Troubleshooting
 
