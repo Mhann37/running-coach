@@ -11,13 +11,20 @@ A static web app that turns a Chrome-on-Android phone into a coaching head-unit 
 
 ## Quick start
 
-**Local on Android:**
+**Local on Android (BLE-only via `file://`):**
 1. Download `index.html`, `style.css`, `app.js`, `manifest.json`, `icon-192.png` onto the phone.
+2. Open `index.html` in Chrome.
+3. Tap **Connect Treadmill** on the Today's Run card, choose your treadmill in the BLE picker, then **Start Run** / **Let's Go**.
+
+> `file://` is fine for treadmill + BLE features. Google sign-in and Firestore sync are disabled on `file://` because OAuth requires HTTPS or localhost.
+
+**Localhost/HTTPS (required for Google Auth + Firestore sync):**
+1. Serve the app from `https://...` (recommended) or `http://localhost` during development.
 2. Add runtime Firebase config using **one** of these:
    - Copy `config.example.js` to `config.js` and fill in your Firebase Web App config.
    - Copy `firebase-config.example.json` to `firebase-config.json` and fill in the same values.
-3. Open `index.html` in Chrome.
-4. Tap **Connect Treadmill** on the Today's Run card, choose your treadmill in the BLE picker, then **Start Run** / **Let's Go**.
+3. In Firebase Console Auth settings, add your dev/prod origin to **Authorized domains** (for example `localhost` and your deployed HTTPS domain).
+4. Open the app URL in Chrome and sign in with Google.
 
 **Deployed:**
 - `https://mhann37.github.io/running-coach/` (auto-deploys from `main` via GitHub Pages).
@@ -145,6 +152,8 @@ Enable Firebase App Check for web where feasible:
 **Metrics show 0.0 / --:--** — the treadmill only emits most fields when the belt is actually moving. Check the Debug details section for parsing errors.
 
 **Connection drops** — keep the phone within ~10 m of the treadmill and prevent the screen from sleeping during the run.
+
+**Google sign-in is disabled / OAuth error on local files** — `file://` origins are unsupported for Firebase Google OAuth. Use an HTTPS deployment (for example GitHub Pages) or localhost development, and make sure that origin is added to Firebase Auth **Authorized domains**.
 
 ## Known limitations
 
