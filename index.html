@@ -44,6 +44,21 @@
         </div>
     </div>
 
+    <section class="glance-strip" aria-label="Live overview">
+        <div class="glance-card">
+            <div class="glance-ring ring-blue"><span id="glancePace">--:--</span></div>
+            <div class="glance-label">Pace /km</div>
+        </div>
+        <div class="glance-card">
+            <div class="glance-ring ring-cyan"><span id="glanceDistance">0.00</span></div>
+            <div class="glance-label">Distance km</div>
+        </div>
+        <div class="glance-card">
+            <div class="glance-ring ring-amber"><span id="glanceTime">00:00</span></div>
+            <div class="glance-label">Duration</div>
+        </div>
+    </section>
+
     <!-- Today's Run (pre-run hero card) -->
     <div class="card today-card" id="goalCard">
         <div class="card-title">Today's Run</div>
@@ -252,6 +267,13 @@
         <button id="hrConnectBtn">HR Monitor</button>
         <div id="hrStatus" class="status disconnected">HR Not Connected</div>
     </div>
+
+    <nav class="app-nav" aria-label="Primary">
+        <button class="app-nav-item active" type="button">Home</button>
+        <button class="app-nav-item" type="button">Metrics</button>
+        <button class="app-nav-item" type="button">History</button>
+        <button class="app-nav-item" type="button">More</button>
+    </nav>
 
 </div>
 
