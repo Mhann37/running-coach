@@ -105,7 +105,7 @@
     // Firebase Auth / Firestore state
     let authUser      = null;
     let authEnabled  = false; // true only when Firebase config is available
-    let authDisabledReason = 'Cloud sync is unavailable on this build.';
+    let authDisabledReason = 'Cloud sync unavailable on this build.';
     let firebaseAuth  = null;
     let firebaseDb    = null;
     let firebaseConfig = null;
@@ -249,7 +249,6 @@
     const personalBestsEmpty     = document.getElementById('personalBestsEmpty');
     const personalBestsTable     = document.getElementById('personalBestsTable');
 
-    const authCard            = document.getElementById('authCard');
     const authStatusEl        = document.getElementById('authStatus');
     const googleSignInBtn     = document.getElementById('googleSignInBtn');
     const googleSignOutBtn    = document.getElementById('googleSignOutBtn');
@@ -472,7 +471,6 @@
 
     function updateAuthUI() {
         if (!authEnabled) {
-            if (authCard) authCard.classList.add('hidden');
             if (authStatusEl) {
                 authStatusEl.textContent = authDisabledReason;
                 authStatusEl.className = 'status disconnected';
@@ -480,12 +478,12 @@
             if (googleSignInBtn) {
                 googleSignInBtn.disabled = true;
                 googleSignInBtn.style.opacity = 0.55;
+                googleSignInBtn.style.display = '';
             }
             if (googleSignOutBtn) googleSignOutBtn.style.display = 'none';
             return;
         }
 
-        if (authCard) authCard.classList.remove('hidden');
         const signedIn = !!authUser;
         if (authStatusEl) {
             if (signedIn) {
@@ -500,6 +498,7 @@
         if (googleSignInBtn) {
             googleSignInBtn.disabled = signedIn;
             googleSignInBtn.style.opacity = signedIn ? 0.6 : 1;
+            googleSignInBtn.style.display = '';
         }
         if (googleSignOutBtn) googleSignOutBtn.style.display = signedIn ? '' : 'none';
     }
@@ -1832,6 +1831,8 @@
             .collection('users').doc(uid)
             .collection('runs').doc(runId)
             .set({ ...workout, runId }, { merge: false });
+
+        log(`Run synced to cloud: ${runId}`);
     }
 
     function persistWorkout(workout) {
