@@ -110,6 +110,8 @@
     let firebaseDb    = null;
     let firebaseConfig = null;
     let firebaseConfigSource = null;
+    let lastAuthErrorCode = null;
+    let lastAuthErrorMessage = null;
     const FIREBASE_JSON_CONFIG_PATH = './firebase-config.json';
 
     // HR Monitor state
@@ -254,6 +256,12 @@
     const authStatusEl        = document.getElementById('authStatus');
     const googleSignInBtn     = document.getElementById('googleSignInBtn');
     const googleSignOutBtn    = document.getElementById('googleSignOutBtn');
+    const authCardEl          = document.getElementById('authCard');
+
+    const authDiagnosticsEl = document.createElement('pre');
+    authDiagnosticsEl.id = 'authDiagnostics';
+    authDiagnosticsEl.className = 'debug';
+    if (authCardEl) authCardEl.appendChild(authDiagnosticsEl);
 
     // ── Init ───────────────────────────────────────────────────────────────────
     if (!navigator.bluetooth) {
@@ -268,6 +276,7 @@
     // Initial PR visibility + Firebase initialization.
     refreshPersonalBestsVisibility();
     initFirebaseAuth();
+    renderAuthDiagnostics();
 
     // Initial chip + CTA + state rendering (pre-run, disconnected).
     setCoachingMode(coachingMode);
@@ -285,20 +294,30 @@
         try {
             if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')) {
                 await firebaseAuth.signInWithRedirect(provider);
+                clearAuthError();
+                renderAuthDiagnostics();
                 return;
             }
             await firebaseAuth.signInWithPopup(provider);
+            clearAuthError();
+            renderAuthDiagnostics();
         } catch (e) {
             const popupUnavailable = e && (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request');
             if (popupUnavailable) {
                 try {
                     await firebaseAuth.signInWithRedirect(provider);
+                    clearAuthError();
+                    renderAuthDiagnostics();
                     return;
                 } catch (redirectErr) {
+                    captureAuthError(redirectErr);
                     log(`Google sign-in redirect error: ${redirectErr.message}`);
+                    renderAuthDiagnostics();
                 }
             }
+            captureAuthError(e);
             log(`Google sign-in error: ${e.message}`);
+            renderAuthDiagnostics();
         }
     });
 
@@ -306,8 +325,12 @@
         if (!authEnabled || !firebaseAuth) return;
         try {
             await firebaseAuth.signOut();
+            clearAuthError();
+            renderAuthDiagnostics();
         } catch (e) {
+            captureAuthError(e);
             log(`Google sign-out error: ${e.message}`);
+            renderAuthDiagnostics();
         }
     });
 
@@ -486,6 +509,30 @@
         renderPersonalBestsUI(getPersonalBests());
     }
 
+
+    function clearAuthError() {
+        lastAuthErrorCode = null;
+        lastAuthErrorMessage = null;
+    }
+
+    function captureAuthError(err, fallbackMessage) {
+        lastAuthErrorCode = (err && err.code) ? err.code : null;
+        lastAuthErrorMessage = (err && err.message) ? err.message : (fallbackMessage || null);
+    }
+
+    function renderAuthDiagnostics() {
+        if (!authDiagnosticsEl) return;
+        const lines = [
+            'Auth diagnostics',
+            `origin: ${(location && location.origin) || 'unknown'}`,
+            `config source: ${firebaseConfigSource || 'not found'}`,
+            `auth enabled: ${authEnabled ? 'yes' : 'no'}`,
+            `last auth error code: ${lastAuthErrorCode || 'none'}`,
+            `last auth error message: ${lastAuthErrorMessage || 'none'}`
+        ];
+        authDiagnosticsEl.textContent = lines.join('\n');
+    }
+
     function updateAuthUI() {
         if (!authEnabled) {
             if (authStatusEl) {
@@ -498,6 +545,7 @@
                 googleSignInBtn.style.display = '';
             }
             if (googleSignOutBtn) googleSignOutBtn.style.display = 'none';
+            renderAuthDiagnostics();
             return;
         }
 
@@ -518,6 +566,7 @@
             googleSignInBtn.style.display = '';
         }
         if (googleSignOutBtn) googleSignOutBtn.style.display = signedIn ? '' : 'none';
+        renderAuthDiagnostics();
     }
 
     function isFirebaseConfigured(config) {
@@ -597,6 +646,7 @@
             if (typeof firebase === 'undefined') {
                 authEnabled = false;
                 authDisabledReason = 'Cloud sync unavailable right now.';
+                captureAuthError(null, 'Firebase SDK not available at runtime.');
                 updateAuthUI();
                 return;
             }
@@ -605,6 +655,7 @@
             if (!isFirebaseConfigured(firebaseConfig)) {
                 authEnabled = false;
                 authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
+                captureAuthError(null, 'Missing or invalid Firebase runtime config.');
                 log('Firebase init failed: config missing/invalid in window.RUNNING_COACH_FIREBASE_CONFIG and firebase-config.json.');
                 updateAuthUI();
                 return;
@@ -618,11 +669,13 @@
             firebaseDb = firebase.firestore();
             authEnabled = true;
             authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
+            clearAuthError();
 
             updateAuthUI();
 
             firebaseAuth.onAuthStateChanged(user => {
                 authUser = user || null;
+                if (authUser) clearAuthError();
                 updateAuthUI();
                 if (authUser) {
                     syncUserDataFromFirestore(authUser.uid).catch(e => log(`PR sync error: ${e.message}`));
@@ -631,9 +684,11 @@
             });
 
             log(`Firebase initialized from ${firebaseConfigSource || 'runtime config'}.`);
+            renderAuthDiagnostics();
         } catch (e) {
             authEnabled = false;
             authDisabledReason = 'Cloud sync unavailable right now.';
+            captureAuthError(e);
             log(`Firebase init error: ${e.message}`);
             updateAuthUI();
         }

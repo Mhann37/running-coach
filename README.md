@@ -89,6 +89,19 @@ If both are missing/invalid, auth stays disabled and `#authStatus` shows a clear
 
 `config.js` and `firebase-config.json` are intentionally gitignored. Commit only the example templates.
 
+
+## Google OAuth checklist
+
+Before testing Google Sign-In, verify all of the following:
+
+- **Google provider enabled** in Firebase Authentication > Sign-in method.
+- **Authorized domains** include the exact production host (for GitHub Pages this is `mhann37.github.io`).
+- **`authDomain` in runtime config** points to the same Firebase project used by this deployment.
+- App is served over **HTTPS** (required for Firebase Auth redirect/popup flow on the web).
+- Runtime config includes a matching **`projectId` + `apiKey`** pair for that Firebase project.
+
+If any of these are wrong, sign-in may fail with domain/auth configuration errors. Use the in-app Account diagnostics block to confirm origin, config source, auth-enabled state, and last auth error.
+
 ## Firebase security/policy checklist (project operations)
 
 ### 1) Firestore rules: lock data to `users/{uid}/...`
