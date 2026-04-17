@@ -111,6 +111,13 @@
     let firebaseConfig = null;
     let firebaseConfigSource = null;
     const FIREBASE_JSON_CONFIG_PATH = './firebase-config.json';
+    let authBusy = false;
+    let authBusyAction = null; // 'signin' | 'signout'
+
+    const AUTH_SIGN_IN_LABEL = 'Sign in with Google';
+    const AUTH_SIGN_OUT_LABEL = 'Sign out';
+    const AUTH_SIGNING_IN_LABEL = 'Signing in…';
+    const AUTH_SIGNING_OUT_LABEL = 'Signing out…';
 
     // HR Monitor state
     let hrDevice            = null;
@@ -280,8 +287,9 @@
 
     // ── Event listeners ────────────────────────────────────────────────────────
     googleSignInBtn.addEventListener('click', async () => {
-        if (!authEnabled || !firebaseAuth) return;
+        if (!authEnabled || !firebaseAuth || authBusy) return;
         const provider = new firebase.auth.GoogleAuthProvider();
+        setAuthBusy(true, 'signin');
         try {
             if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')) {
                 await firebaseAuth.signInWithRedirect(provider);
@@ -292,6 +300,7 @@
             const popupUnavailable = e && (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request');
             if (popupUnavailable) {
                 try {
+                    setAuthBusy(true, 'signin');
                     await firebaseAuth.signInWithRedirect(provider);
                     return;
                 } catch (redirectErr) {
@@ -299,15 +308,18 @@
                 }
             }
             log(`Google sign-in error: ${e.message}`);
+            setAuthBusy(false);
         }
     });
 
     googleSignOutBtn.addEventListener('click', async () => {
-        if (!authEnabled || !firebaseAuth) return;
+        if (!authEnabled || !firebaseAuth || authBusy) return;
+        setAuthBusy(true, 'signout');
         try {
             await firebaseAuth.signOut();
         } catch (e) {
             log(`Google sign-out error: ${e.message}`);
+            setAuthBusy(false);
         }
     });
 
@@ -486,6 +498,12 @@
         renderPersonalBestsUI(getPersonalBests());
     }
 
+    function setAuthBusy(busy, action = null) {
+        authBusy = !!busy;
+        authBusyAction = authBusy ? action : null;
+        updateAuthUI();
+    }
+
     function updateAuthUI() {
         if (!authEnabled) {
             if (authStatusEl) {
@@ -496,12 +514,20 @@
                 googleSignInBtn.disabled = true;
                 googleSignInBtn.style.opacity = 0.55;
                 googleSignInBtn.style.display = '';
+                googleSignInBtn.textContent = AUTH_SIGN_IN_LABEL;
+                googleSignInBtn.classList.remove('is-loading');
             }
-            if (googleSignOutBtn) googleSignOutBtn.style.display = 'none';
+            if (googleSignOutBtn) {
+                googleSignOutBtn.style.display = 'none';
+                googleSignOutBtn.disabled = true;
+                googleSignOutBtn.textContent = AUTH_SIGN_OUT_LABEL;
+                googleSignOutBtn.classList.remove('is-loading');
+            }
             return;
         }
 
         const signedIn = !!authUser;
+        const disableAuthActions = authBusy;
         if (authStatusEl) {
             if (signedIn) {
                 authStatusEl.textContent = `Signed in: ${authUser.displayName || authUser.email || 'Google'}`;
@@ -513,11 +539,20 @@
         }
 
         if (googleSignInBtn) {
-            googleSignInBtn.disabled = signedIn;
-            googleSignInBtn.style.opacity = signedIn ? 0.6 : 1;
+            const signInBusy = authBusyAction === 'signin' && authBusy;
+            googleSignInBtn.disabled = signedIn || disableAuthActions;
+            googleSignInBtn.style.opacity = (signedIn || disableAuthActions) ? 0.6 : 1;
             googleSignInBtn.style.display = '';
+            googleSignInBtn.textContent = signInBusy ? AUTH_SIGNING_IN_LABEL : AUTH_SIGN_IN_LABEL;
+            googleSignInBtn.classList.toggle('is-loading', signInBusy);
         }
-        if (googleSignOutBtn) googleSignOutBtn.style.display = signedIn ? '' : 'none';
+        if (googleSignOutBtn) {
+            const signOutBusy = authBusyAction === 'signout' && authBusy;
+            googleSignOutBtn.style.display = signedIn ? '' : 'none';
+            googleSignOutBtn.disabled = disableAuthActions;
+            googleSignOutBtn.textContent = signOutBusy ? AUTH_SIGNING_OUT_LABEL : AUTH_SIGN_OUT_LABEL;
+            googleSignOutBtn.classList.toggle('is-loading', signOutBusy);
+        }
     }
 
     function isFirebaseConfigured(config) {
@@ -623,7 +658,7 @@
 
             firebaseAuth.onAuthStateChanged(user => {
                 authUser = user || null;
-                updateAuthUI();
+                setAuthBusy(false);
                 if (authUser) {
                     syncUserDataFromFirestore(authUser.uid).catch(e => log(`PR sync error: ${e.message}`));
                 }
