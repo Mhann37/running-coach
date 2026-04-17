@@ -239,6 +239,12 @@
     const stopModalCalEl  = document.getElementById('stopModalCal');
     const stopModalAvgPaceEl  = document.getElementById('stopModalAvgPace');
     const stopModalBest1kEl   = document.getElementById('stopModalBest1k');
+    const stopModalModeEl     = document.getElementById('stopModalMode');
+    const stopModalMetaEl     = document.getElementById('stopModalMeta');
+    const stopModalFinalDist  = document.getElementById('stopModalFinalDist');
+    const stopModalRawDist    = document.getElementById('stopModalRawDist');
+    const stopModalResetDist  = document.getElementById('stopModalResetDist');
+    const stopModalBlocksEl   = document.getElementById('stopModalBlocks');
     const saveRunBtn      = document.getElementById('saveRunBtn');
     const discardRunBtn   = document.getElementById('discardRunBtn');
 
@@ -388,13 +394,22 @@
 
         const sd = getSessionData(lastData);
         if (sd) {
-            const workout = buildWorkoutRecord(sd);
+            // Read user-corrected distance from the input (falls back to raw).
+            const parsed = parseFloat(stopModalFinalDist.value);
+            const finalDistanceKm = (Number.isFinite(parsed) && parsed >= 0) ? parsed : sd.distance;
+            const workout = buildWorkoutRecord(sd, { finalDistanceKm });
             persistWorkout(workout);
             historyFab.classList.remove('hidden');
         }
         stopModal.classList.remove('active');
         finishSession();
         endRunBusy = false;
+    });
+
+    // Reset distance input to machine-reported raw value
+    stopModalResetDist.addEventListener('click', () => {
+        const raw = stopModalFinalDist.dataset.raw;
+        if (raw !== undefined) stopModalFinalDist.value = raw;
     });
 
     discardRunBtn.addEventListener('click', () => {
@@ -729,27 +744,71 @@
             finishSession();
             return;
         }
-        // Populate modal
+        renderStopModal(sd);
+        stopModal.classList.add('active');
+        setAppState('postrun');
+        // Stop coaching while modal is open
+        stopCoachingTimer();
+    }
+
+    /**
+     * Populates the Review-run modal with session stats, mode context,
+     * distance correction input, and (when applicable) a workout block summary.
+     */
+    function renderStopModal(sd) {
+        // Summary grid
         stopModalDistEl.textContent = sd.distance.toFixed(2);
         stopModalTimeEl.textContent = formatDuration(sd.time);
         stopModalCalEl.textContent  = sd.calories;
 
         // Derived Strava-like stats for the end-of-run summary.
         const preview = buildWorkoutRecord(sd);
-        const avgPaceStr = Number.isFinite(preview.avgPaceMinPerKm)
+        stopModalAvgPaceEl.textContent = Number.isFinite(preview.avgPaceMinPerKm)
             ? formatPace(preview.avgPaceMinPerKm).replace('/km', '')
             : '--:--';
-        const best1kStr = Number.isFinite(preview.best1kPaceMinPerKm)
+        stopModalBest1kEl.textContent = Number.isFinite(preview.best1kPaceMinPerKm)
             ? formatPace(preview.best1kPaceMinPerKm).replace('/km', '')
             : '--:--';
 
-        stopModalAvgPaceEl.textContent = avgPaceStr;
-        stopModalBest1kEl.textContent = best1kStr;
+        // Mode badge + meta (support mode, coaching mode)
+        let modeLabel = 'Free Run';
+        let modeKey = 'free';
+        if (sessionMode === 'goal') { modeLabel = 'Goal Run'; modeKey = 'goal'; }
+        else if (sessionMode === 'workout' && activeWorkout) { modeLabel = activeWorkout.name; modeKey = 'workout'; }
+        stopModalModeEl.textContent = modeLabel;
+        stopModalModeEl.dataset.mode = modeKey;
 
-        stopModal.classList.add('active');
-        setAppState('postrun');
-        // Stop coaching while modal is open
-        stopCoachingTimer();
+        const metaParts = [supportModeLabel(getSupportMode())];
+        if (coachingMode && coachingMode !== 'quiet') metaParts.push(`Coach: ${coachingMode}`);
+        else if (coachingMode === 'quiet') metaParts.push('Coach: quiet');
+        stopModalMetaEl.textContent = metaParts.join(' · ');
+
+        // Distance correction
+        stopModalRawDist.textContent = sd.distance.toFixed(2);
+        stopModalFinalDist.value     = sd.distance.toFixed(2);
+        stopModalFinalDist.dataset.raw = sd.distance.toFixed(2);
+
+        // Workout block summary (only in Workout mode)
+        if (activeWorkout) {
+            const rows = activeWorkout.blocks.map((b, i) => {
+                const mins = Math.floor(b.durationSec / 60);
+                const secs = b.durationSec % 60;
+                const dur  = mins > 0 ? `${mins}:${String(secs).padStart(2,'0')}` : `${secs}s`;
+                const target = (b.targetSpeedMin && b.targetSpeedMax)
+                    ? `${b.targetSpeedMin}–${b.targetSpeedMax} km/h`
+                    : '—';
+                const status = (workoutCompleted || i < workoutBlockIdx) ? '✓ ' : (i === workoutBlockIdx ? '• ' : '');
+                return `<div class="mb-item">
+                    <span class="mb-item-label">${status}${b.label}</span>
+                    <span class="mb-item-meta">${dur} · ${target}</span>
+                </div>`;
+            }).join('');
+            stopModalBlocksEl.innerHTML = `<div class="modal-blocks-title">Workout blocks</div>${rows}`;
+            stopModalBlocksEl.classList.remove('hidden');
+        } else {
+            stopModalBlocksEl.classList.add('hidden');
+            stopModalBlocksEl.innerHTML = '';
+        }
     }
 
     /**
@@ -1608,10 +1667,17 @@
     /**
      * Builds the full workout record from session-relative data.
      * Used by both the Stop modal save path and autoSaveOnDisconnect().
+     * @param {object} sd    session-relative data
+     * @param {object} [opts] { finalDistanceKm? } — user-corrected distance
      */
-    function buildWorkoutRecord(sd) {
-        const distanceKm = sd.distance;
-        const durationSec = sd.time;
+    function buildWorkoutRecord(sd, opts) {
+        opts = opts || {};
+        const rawDistanceKm = sd.distance;
+        const finalDistanceKm = (Number.isFinite(opts.finalDistanceKm) && opts.finalDistanceKm >= 0)
+            ? opts.finalDistanceKm
+            : rawDistanceKm;
+        // Distance used for all downstream metrics is the final (possibly corrected) value.
+        const distanceKm = finalDistanceKm;
 
         // Overall pace: Strava-style "min/km" from total distance + total time.
         const avgPaceMinPerKm = distanceKm > 0
@@ -1658,10 +1724,34 @@
             ? parseFloat((sessionSpeedSum / sessionSpeedCount).toFixed(2))
             : parseFloat(sd.speed.toFixed(2));
 
+        const supportMode = getSupportMode();
+        const capabilitySnapshot = {
+            hasControl: !!controlPointCharacteristic,
+            hasExtHR:   !!(hrDevice && hrDevice.gatt && hrDevice.gatt.connected),
+            hasFtmsHR:  !!(lastData && lastData.heartRate > 0)
+        };
+
+        // Block summary: snapshot of the workout blueprint + current progress index.
+        // Emitted only when a structured workout was active.
+        const blockSummary = activeWorkout
+            ? activeWorkout.blocks.map((b, i) => ({
+                idx: i,
+                kind: b.kind,
+                label: b.label,
+                durationSec: b.durationSec,
+                targetSpeedMin: b.targetSpeedMin || null,
+                targetSpeedMax: b.targetSpeedMax || null,
+                completed: workoutCompleted || (i < workoutBlockIdx)
+              }))
+            : null;
+
         return {
             date:         new Date().toISOString(),
             duration:     sd.time,
-            distance:     parseFloat(sd.distance.toFixed(3)),
+            // `distance` is the saved/final value (possibly user-corrected).
+            distance:     parseFloat(distanceKm.toFixed(3)),
+            rawDistanceKm:   parseFloat(rawDistanceKm.toFixed(3)),
+            finalDistanceKm: parseFloat(distanceKm.toFixed(3)),
             calories:     sd.calories,
             avgSpeed:     avgSpeed,
             avgPaceMinPerKm: avgPaceMinPerKm,
@@ -1670,7 +1760,14 @@
             incline:      parseFloat(sd.incline.toFixed(1)),
             goalDistance: goalDistance,
             goalTime:     goalTime,
-            goalAchieved: checkGoalAchieved(sd),
+            goalAchieved: checkGoalAchieved({ distance: distanceKm, time: sd.time }),
+            sessionMode:     sessionMode,
+            supportMode:     supportMode,
+            coachingMode:    coachingMode,
+            workoutPresetId: activeWorkout ? activeWorkout.id : null,
+            workoutName:     activeWorkout ? activeWorkout.name : null,
+            capabilitySummary: capabilitySnapshot,
+            blockSummary: blockSummary,
             speedSamples: speedSamples.slice(),
             splits:       kmSplits
         };
@@ -1886,10 +1983,23 @@
                 ? `<div class="history-goal-line">Goal: ${[w.goalDistance ? w.goalDistance + ' km' : '', w.goalTime ? w.goalTime + ' min' : ''].filter(Boolean).join(' · ')}</div>`
                 : '';
 
+            // Session-mode badge (legacy rows without sessionMode fall back to Free Run).
+            const mode = w.sessionMode || 'free';
+            let modeLabel = 'Free Run';
+            if (mode === 'goal') modeLabel = 'Goal Run';
+            else if (mode === 'workout') modeLabel = w.workoutName || 'Workout';
+            const modeBadgeHtml = `<span class="history-mode-badge" data-mode="${mode}">${modeLabel}</span>`;
+
+            // Raw-vs-final distance hint (only when user corrected the value).
+            const rawHintHtml = (Number.isFinite(w.rawDistanceKm) && Math.abs(w.rawDistanceKm - w.distance) > 0.005)
+                ? `<div class="history-raw-hint">Machine reported ${w.rawDistanceKm.toFixed(2)} km · saved ${w.distance.toFixed(2)} km</div>`
+                : '';
+
             return `
             <div class="history-item">
                 <div class="history-item-header">
                     <span class="history-date">${formatDate(w.date)}</span>
+                    ${modeBadgeHtml}
                     ${badgeHtml}
                 </div>
                 <div class="history-metrics">
@@ -1928,6 +2038,7 @@
                 </div>
                 ${sparklineHtml ? `<div class="history-sparkline">${sparklineHtml}</div>` : ''}
                 ${goalLineHtml}
+                ${rawHintHtml}
             </div>`;
         }).join('');
     }

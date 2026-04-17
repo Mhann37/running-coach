@@ -143,13 +143,45 @@ All state is plain `let` variables at the top of `app.js`. Key variables:
 - `sessionMaxSpeed`, `sessionSpeedSum`, `sessionSpeedCount` — reset on each session, used to compute avg/max for saved records
 - `splits`, `speedSamples` — for per-km splits and sparklines
 
+### Post-run Review Flow
+
+`stopSession()` opens the Review-run modal (`#stopModal`) with:
+- Mode badge (`Free Run` / `Goal Run` / workout name) + meta line (support mode · coaching mode).
+- Summary grid: distance / time / avg pace / best 1 km / kcal.
+- **Distance correction** input (`#stopModalFinalDist`) pre-filled with the machine-reported raw value. Users can overwrite when the treadmill's distance is off; a "Reset to machine" button restores the raw value. The raw value is stashed on `input.dataset.raw`.
+- Workout block summary (Workout mode only) — each block with duration, target band, and a `✓`/`•` status marker indicating completed / current.
+- Save / Discard actions.
+
+The save handler reads the (possibly edited) final distance and passes it as `{ finalDistanceKm }` into `buildWorkoutRecord(sd, opts)`. If the user doesn't edit the field, final = raw.
+
+`autoSaveOnDisconnect()` calls `buildWorkoutRecord(sd)` with no opts, so the raw machine distance is saved as-is (no correction possible without the user).
+
+### Workout Record Schema
+
+Every record emitted by `buildWorkoutRecord()` carries, in addition to legacy fields (`date`, `duration`, `distance`, `calories`, `avgSpeed`, `avgPaceMinPerKm`, `best1kPaceMinPerKm`, `maxSpeed`, `incline`, `goalDistance`, `goalTime`, `goalAchieved`, `speedSamples`, `splits`):
+
+- `rawDistanceKm` — machine-reported distance at stop.
+- `finalDistanceKm` — distance actually saved (= `distance`; equals `rawDistanceKm` unless user corrected).
+- `sessionMode` — `'free' | 'goal' | 'workout'`.
+- `supportMode` — `'disconnected' | 'readonly' | 'controllable'` at save time.
+- `coachingMode` — `'quiet' | 'spoken' | 'haptic'` at save time.
+- `workoutPresetId` / `workoutName` — present only in Workout mode.
+- `capabilitySummary` — `{ hasControl, hasExtHR, hasFtmsHR }` snapshot.
+- `blockSummary` — array of block metadata (`idx`, `kind`, `label`, `durationSec`, target speed range, `completed`) when a workout was active; `null` otherwise.
+
+`goalAchieved` uses the final (possibly corrected) distance, so upward corrections can flip a Goal Run from `partial` → `achieved`.
+
+Legacy rows in `localStorage` without these fields still render correctly — history code defaults missing fields (e.g. `sessionMode` → `'free'`).
+
 ### Workout History / Personal Bests
 
 Local: `localStorage` under `runHistory:guest` (or `runHistory:<uid>` when signed in). Max 10 entries, oldest dropped. A workout is only saved if `distance >= 0.05 km` AND `time >= 30 s`. Goal achievement uses a 95 % threshold.
 
 Personal Bests (1–10 km) kept under `personalBests:guest` or `personalBests:<uid>` and mirrored to Firestore when signed in. Computed from a workout's per-km splits.
 
-History is saved via the Stop-Run modal (user taps Save) or auto-saved when reconnect attempts are exhausted.
+History cards render a session-mode badge next to the date, plus a "Machine reported X · saved Y" hint when the user corrected the distance.
+
+History is saved via the Review-run modal (user taps Save) or auto-saved when reconnect attempts are exhausted.
 
 ## Key Constants
 

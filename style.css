@@ -1266,3 +1266,158 @@
             color: var(--text-1);
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
         }
+
+        /* Stop modal — review-first extras (Section 3) */
+        .modal-mode-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .modal-mode-badge {
+            display: inline-block;
+            font-size: 0.56em;
+            font-weight: 700;
+            padding: 4px 11px;
+            border-radius: 999px;
+            letter-spacing: 1.4px;
+            text-transform: uppercase;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            color: var(--text-2);
+        }
+        .modal-mode-badge[data-mode="goal"]    { color: var(--green); border-color: rgba(47,201,138,0.25); background: rgba(47,201,138,0.08); }
+        .modal-mode-badge[data-mode="workout"] { color: var(--blue);  border-color: rgba(76,142,245,0.25); background: rgba(76,142,245,0.08); }
+        .modal-mode-meta {
+            font-size: 0.68em;
+            color: var(--text-3);
+            letter-spacing: 0.2px;
+        }
+
+        .modal-distance-correct {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px 14px;
+            margin-bottom: 14px;
+        }
+        .mdc-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .mdc-label {
+            font-size: 0.58em;
+            font-weight: 700;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 1.4px;
+        }
+        .mdc-reset {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-3);
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.55em;
+            font-weight: 700;
+            padding: 5px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            transition: background 0.13s, color 0.13s;
+        }
+        .mdc-reset:hover { color: var(--text-2); background: rgba(255,255,255,0.04); }
+        .mdc-row {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+        .mdc-row input {
+            flex: 1;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            color: var(--text-1);
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.3em;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.3px;
+        }
+        .mdc-row input:focus { outline: none; border-color: var(--green); }
+        .mdc-unit {
+            font-size: 0.68em;
+            color: var(--text-3);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+        }
+        .mdc-raw {
+            margin-top: 8px;
+            font-size: 0.6em;
+            color: var(--text-3);
+            line-height: 1.5;
+        }
+
+        .modal-blocks {
+            background: rgba(76,142,245,0.05);
+            border: 1px solid rgba(76,142,245,0.15);
+            border-radius: 14px;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+        }
+        .modal-blocks.hidden { display: none; }
+        .modal-blocks-title {
+            font-size: 0.56em;
+            font-weight: 700;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 1.4px;
+            margin-bottom: 8px;
+        }
+        .mb-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding: 5px 0;
+            border-top: 1px solid rgba(255,255,255,0.04);
+        }
+        .mb-item:first-of-type { border-top: none; }
+        .mb-item-label {
+            font-size: 0.72em;
+            color: var(--text-2);
+            font-weight: 600;
+        }
+        .mb-item-meta {
+            font-size: 0.62em;
+            color: var(--text-3);
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.2px;
+        }
+
+        /* History card extras (Section 3) */
+        .history-mode-badge {
+            display: inline-block;
+            font-size: 0.52em;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 999px;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            color: var(--text-3);
+            margin-left: 8px;
+        }
+        .history-mode-badge[data-mode="goal"]    { color: var(--green); border-color: rgba(47,201,138,0.25); background: rgba(47,201,138,0.08); }
+        .history-mode-badge[data-mode="workout"] { color: var(--blue);  border-color: rgba(76,142,245,0.25); background: rgba(76,142,245,0.08); }
+        .history-raw-hint {
+            margin-top: 6px;
+            font-size: 0.6em;
+            color: var(--text-3);
+            letter-spacing: 0.2px;
+        }

@@ -255,22 +255,26 @@
 
 </div>
 
-<!-- Stop Session Modal -->
+<!-- Stop Session Modal — review-first flow -->
 <div class="modal-overlay" id="stopModal">
     <div class="modal-card">
-        <div class="modal-title">End Run</div>
+        <div class="modal-title">Review run</div>
+
+        <!-- Mode row -->
+        <div class="modal-mode-row">
+            <span class="modal-mode-badge" id="stopModalMode" data-mode="free">Free Run</span>
+            <span class="modal-mode-meta" id="stopModalMeta"></span>
+        </div>
+
+        <!-- Summary grid -->
         <div class="modal-summary">
             <div class="modal-stat">
                 <span id="stopModalDist">0.00</span>
-                <small>km</small>
+                <small>distance</small>
             </div>
             <div class="modal-stat">
                 <span id="stopModalTime">00:00</span>
                 <small>time</small>
-            </div>
-            <div class="modal-stat">
-                <span id="stopModalCal">0</span>
-                <small>kcal</small>
             </div>
             <div class="modal-stat">
                 <span id="stopModalAvgPace">--:--</span>
@@ -280,7 +284,28 @@
                 <span id="stopModalBest1k">--:--</span>
                 <small>best 1km</small>
             </div>
+            <div class="modal-stat">
+                <span id="stopModalCal">0</span>
+                <small>kcal</small>
+            </div>
         </div>
+
+        <!-- Distance correction -->
+        <div class="modal-distance-correct">
+            <div class="mdc-head">
+                <span class="mdc-label">Distance to save</span>
+                <button class="mdc-reset" id="stopModalResetDist" type="button">Reset to machine</button>
+            </div>
+            <div class="mdc-row">
+                <input type="number" id="stopModalFinalDist" min="0" max="500" step="0.01" inputmode="decimal">
+                <span class="mdc-unit">km</span>
+            </div>
+            <div class="mdc-raw">Machine reported <span id="stopModalRawDist">0.00</span> km — edit above to correct.</div>
+        </div>
+
+        <!-- Workout block summary (only shown in Workout mode) -->
+        <div class="modal-blocks hidden" id="stopModalBlocks"></div>
+
         <button id="saveRunBtn" class="btn-modal-save">Save Run</button>
         <button id="discardRunBtn" class="btn-modal-discard">Discard</button>
     </div>

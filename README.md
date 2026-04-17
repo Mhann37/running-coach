@@ -45,8 +45,12 @@ A static web app that turns a Chrome-on-Android phone into a coaching head-unit 
 - Speed / incline control via FTMS control point when supported (presets: 7, 12.5, 15 km/h).
 
 ### Post-run
-- Stop-Run modal summarises distance, time, calories, avg pace, best 1 km pace, before Save / Discard.
-- Local history (last 10 runs) in `localStorage`; optional Firestore sync when signed in with Google.
+- **Review-run modal** with mode badge (Free Run / Goal Run / workout name) + support-mode + coaching-mode meta.
+- Summary grid: distance, time, avg pace, best 1 km pace, calories.
+- **Distance correction** — pre-filled with the machine-reported value; edit it if the treadmill's distance is off. "Reset to machine" restores the raw value. Corrected distance flows into `goalAchieved` and history.
+- Workout-block summary (Workout mode): per-block duration, target band, and `✓`/`•` markers for completed / current.
+- Local history (last 10 runs) in `localStorage`; optional Firestore sync when signed in with Google. Each run stores raw vs final distance, session mode, support mode, coaching mode, capability snapshot, and (for workouts) a block summary.
+- History cards show a session-mode badge and a raw-vs-saved distance hint when corrected.
 - Personal Bests (1–10 km) computed from split data.
 
 ## BLE details
@@ -79,7 +83,6 @@ No build step, no modules, no bundler. Firebase (auth + Firestore) is loaded fro
 ## Known limitations
 
 - No Strava / Garmin sync.
-- Post-run modal does not yet allow distance correction (planned).
 - Cadence is not reported — treadmills don't provide a reliable cadence signal, so it's deliberately omitted.
 - Signal strength / RSSI is not available through the Web Bluetooth API and is therefore not shown.
 - Speech synthesis relies on browser TTS — Chrome on Android speaks fine, but voice quality / latency varies by device.
