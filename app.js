@@ -277,6 +277,7 @@
     refreshPersonalBestsVisibility();
     initFirebaseAuth();
     renderAuthDiagnostics();
+    window.setInterval(renderAuthDiagnostics, 5000);
 
     // Initial chip + CTA + state rendering (pre-run, disconnected).
     setCoachingMode(coachingMode);
@@ -306,12 +307,10 @@
                 } catch (redirectErr) {
                     captureAuthError(redirectErr);
                     log(`Google sign-in redirect error: ${redirectErr.message}`);
-                    renderAuthDiagnostics();
                 }
             }
             captureAuthError(e);
             log(`Google sign-in error: ${e.message}`);
-            renderAuthDiagnostics();
         }
     });
 
@@ -322,7 +321,6 @@
         } catch (e) {
             captureAuthError(e);
             log(`Google sign-out error: ${e.message}`);
-            renderAuthDiagnostics();
         }
     });
 
@@ -505,11 +503,13 @@
     function clearAuthError() {
         lastAuthErrorCode = null;
         lastAuthErrorMessage = null;
+        renderAuthDiagnostics();
     }
 
     function captureAuthError(err, fallbackMessage) {
         lastAuthErrorCode = (err && err.code) ? err.code : null;
         lastAuthErrorMessage = (err && err.message) ? err.message : (fallbackMessage || null);
+        renderAuthDiagnostics();
     }
 
     function renderAuthDiagnostics() {
@@ -537,7 +537,6 @@
                 googleSignInBtn.style.display = '';
             }
             if (googleSignOutBtn) googleSignOutBtn.style.display = 'none';
-            renderAuthDiagnostics();
             return;
         }
 
@@ -558,7 +557,6 @@
             googleSignInBtn.style.display = '';
         }
         if (googleSignOutBtn) googleSignOutBtn.style.display = signedIn ? '' : 'none';
-        renderAuthDiagnostics();
     }
 
     function isFirebaseConfigured(config) {
@@ -638,7 +636,6 @@
             if (typeof firebase === 'undefined') {
                 authEnabled = false;
                 authDisabledReason = 'Cloud sync unavailable right now.';
-                captureAuthError(null, 'Firebase SDK not available at runtime.');
                 updateAuthUI();
                 return;
             }
@@ -647,7 +644,6 @@
             if (!isFirebaseConfigured(firebaseConfig)) {
                 authEnabled = false;
                 authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
-                captureAuthError(null, 'Missing or invalid Firebase runtime config.');
                 log('Firebase init failed: config missing/invalid in window.RUNNING_COACH_FIREBASE_CONFIG and firebase-config.json.');
                 updateAuthUI();
                 return;
@@ -661,7 +657,6 @@
             firebaseDb = firebase.firestore();
             authEnabled = true;
             authDisabledReason = 'Cloud sync unavailable on this build (missing Firebase config).';
-            clearAuthError();
 
             updateAuthUI();
 
@@ -679,7 +674,6 @@
         } catch (e) {
             authEnabled = false;
             authDisabledReason = 'Cloud sync unavailable right now.';
-            captureAuthError(e);
             log(`Firebase init error: ${e.message}`);
             updateAuthUI();
         }
