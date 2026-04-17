@@ -1,84 +1,118 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) when working in this repository.
 
 ## Running the App
 
-There is no build step. The entire app is a single `index.html` file.
+No build step. The app is a static PWA composed of:
+
+- `index.html` — structure
+- `style.css` — styles
+- `app.js` — all runtime logic
+- `manifest.json` — PWA manifest
+- `icon-192.png` / `icon-512.png` — app icons
+- `README.md` / `CLAUDE.md`
 
 **To test locally on Android:**
-- Transfer `index.html` to an Android device and open in Chrome, OR
+- Transfer the files to an Android device and open `index.html` in Chrome, OR
 - Serve via any static file server (e.g. `python3 -m http.server 8080`) and open on Android Chrome via LAN IP
 
 **Deployed URL:** `https://mhann37.github.io/running-coach/` (GitHub Pages, auto-deploys from `main`)
 
-**Critical runtime constraint:** Web Bluetooth API requires Chrome on Android. It does not work in Firefox, Safari, Samsung Internet, or on desktop Chrome (Web Bluetooth is disabled on non-Android desktop). HTTPS or `file://` is required.
+**Runtime constraint:** Web Bluetooth requires Chrome on Android. Does not work in Firefox, Safari, Samsung Internet, or non-Android desktop Chrome. HTTPS or `file://` required.
 
 ## Architecture
 
-The entire application lives in `index.html` — all HTML structure, CSS, and JavaScript are in one file. There are no modules, no build tools, no external dependencies.
+Pure HTML / CSS / JS — no modules, no build, no bundler. Firebase (auth + Firestore) is pulled directly from the CDN in `index.html`. All runtime state lives as plain `let` variables at the top of `app.js`.
 
-### Card Visibility System
+### App State Model
 
-The UI is composed of cards that are shown/hidden by toggling the `.active` CSS class (or `.hidden` for the metrics card). Cards only appear after treadmill connection:
+The app has three explicit states, tracked via `appState` and mirrored onto `body[data-state="..."]`:
 
-- `goalCard` — shown on connect; hides input section and shows `goalSummary` after `confirmGoal()`
-- `coachingCard` — shown on connect
-- `controlsCard` — shown only if the treadmill exposes a FTMS Control Point characteristic
-- `metricsCard` — starts with `.hidden`, removed on connect
-- `historyCard` — always visible (rendered on page load from localStorage)
+- `prerun` — Today's Run card is dominant. Chip row shows treadmill / HR / support-mode status. Primary CTA is either "Connect Treadmill" (if disconnected) or "Start Run" / "Let's Go" (if connected).
+- `active` — live metrics, coach, session controls visible. Today's Run card collapses to a goal-summary row.
+- `postrun` — Stop Run modal is open for review / save / discard.
+
+Transitions are driven by `setAppState(state)` in `app.js`.
+
+### Session Modes
+
+Tracked by `sessionMode`:
+- `free` — no target, coach reacts to effort.
+- `goal` — distance and/or time target, pace-aware coaching.
+- `workout` — reserved for a later pass (button is visible but disabled).
+
+`setSessionMode(mode)` toggles goal-input visibility and updates the primary CTA text.
+
+### Support Mode / Capability Classification
+
+On connect, the app derives a truthful support label via `getSupportMode()`:
+
+- `disconnected` — "Disconnected"
+- `readonly` — "Read-only FTMS" (treadmill data received, but no control point)
+- `controllable` — "Controllable FTMS" (control point characteristic acquired)
+
+The "Mode" chip in the top chip row reflects this label. `renderCapabilitySummary()` renders a capability list inside the Today's Run card (Speed / Distance / Incline / Calories / HR source / Control). Capabilities are marked on/off based on what's genuinely observable — HR is flagged as `HR (external)` when an external monitor is connected, `HR (treadmill)` when FTMS flag `0x100` appears, otherwise `HR` marked off.
 
 ### Two Independent BLE Connections
 
 **Treadmill (FTMS protocol):**
-- Service `0x1826`, Treadmill Data characteristic `0x2ACD` (notifications), Control Point `0x2AD9` (write)
-- Data arrives as a flags-based variable-length binary packet. The flags `uint16` at bytes 0–1 determines which optional fields follow. Speed is always present at bytes 2–3 (value × 0.01 = km/h). See `parseTreadmillData()` for the full flag map.
-- Control Point is optional — some treadmills don't expose it. If unavailable, the controls card is not shown but data still flows.
-- Speed command opcode `0x02` (value in 0.01 km/h units as uint16 LE), incline opcode `0x03` (value in 0.1% units as int16 LE). Must send `0x00` (request control) before first write.
+- Service `0x1826`, Treadmill Data `0x2ACD` (notifications), Control Point `0x2AD9` (write)
+- Data is a flags-based variable-length packet. The `uint16` flags field at bytes 0–1 determines which optional fields follow. Speed always present at bytes 2–3 (value × 0.01 = km/h). See `parseTreadmillData()` for the full flag map.
+- Control Point is optional — some treadmills don't expose it. If unavailable, control UI stays hidden but data still flows (Read-only FTMS).
+- Speed opcode `0x02` (uint16 LE, units of 0.01 km/h), incline opcode `0x03` (int16 LE, units of 0.1 %). Request control (`0x00`) is sent before first write.
 
 **Heart Rate Monitor (standard BLE HR Service):**
-- Service `0x180D`, HR Measurement characteristic `0x2A37` (notifications)
-- Flags byte bit 0: `0` = HR is uint8 at byte 1, `1` = HR is uint16 LE at bytes 1–2
-- Completely independent from the treadmill connection — connects/disconnects separately, has its own reconnect loop and status indicator
-- If the external HR monitor is not connected but the treadmill reports HR via flag `0x100` in the FTMS packet, that value is used as fallback in `updateMetrics()`
+- Service `0x180D`, HR Measurement `0x2A37` (notifications)
+- Flags byte bit 0: `0` → uint8 at byte 1, `1` → uint16 LE at bytes 1–2
+- Completely independent from the treadmill connection — connects/disconnects separately, own reconnect loop, own status chip.
+- If no external HR monitor is connected but the treadmill reports HR via flag `0x100`, that value is used as fallback inside `updateMetrics()`.
 
-Both connections share the same reconnect pattern: up to `MAX_RECONNECT_TRIES` (5) attempts, delay of `attempt × 1500ms`. The `manualDisconnect` / `hrManualDisconnect` flags prevent auto-reconnect when the user explicitly disconnects.
+Both connections share the same reconnect pattern: up to `MAX_RECONNECT_TRIES` (5) attempts, delay `attempt × 1500ms`. `manualDisconnect` / `hrManualDisconnect` flags suppress auto-reconnect on explicit disconnect.
 
-### Coaching System
+### Pre-run Screen Hierarchy
 
-Coaching messages fire every `COACHING_INTERVAL` (15 000 ms) via `setInterval`, with a countdown displayed.
+1. Header (brand + History FAB)
+2. Status chip row — treadmill status, HR status, support mode. Treadmill and HR chips are tappable (trigger connect/disconnect).
+3. Today's Run card (hero) — mode selector (Free / Goal / Workout), goal inputs (Goal mode only), capability summary (when connected), primary CTA.
+4. (Hidden pre-run: coach card, session controls, controls card, metrics card.)
+5. Secondary `<details>` cards (collapsed by default) — Personal Bests, Account, Debug.
 
-**`buildCoachMessage(data)`** is the main logic function. When both `goalDistance` and `goalTime` are set, it delegates to **`analyzePace(data)`** which computes:
+The legacy `#connectBtn` / `#status` / `#hrConnectBtn` / `#hrStatus` nodes still live in the DOM inside a `.legacy-hidden` wrapper so existing handlers continue to drive state — the visible UI is the chip row and primary CTA.
+
+### Coaching System (current pass)
+
+Coaching messages fire every `COACHING_INTERVAL` (15 000 ms) via `setInterval`, with a countdown displayed. `buildCoachMessage(data)` is the main logic function. When both `goalDistance` and `goalTime` are set, it delegates to `analyzePace(data)` which computes:
+
 - `requiredSpeedKmh` = remaining distance ÷ remaining time (converted to km/h)
-- `speedGap` = required − current (positive = runner is too slow)
-- `projectedTotalMin` = elapsed + (remaining distance ÷ current speed × 60)
+- `speedGap` = required − current
+- `projectedTotalMin` = elapsed + remaining distance ÷ current speed × 60
 
-Coaching tone based on `speedGap`:
-| `speedGap` | Emoji | Tone |
-|---|---|---|
-| speed is 0 | 🚀 / ⏸️ | Prompt to start |
-| > 2.5 km/h | ⚠️ | Pace alert with projected finish time |
-| 0.5 – 2.5 km/h | 📈 | Behind, push harder |
-| ±0.5 km/h | ✅/🏃/💪/💥 | On pace, progress-dependent |
-| < −0.5 km/h | 🚀/💪/💥 | Ahead of pace |
+HR zone feedback is appended when HR data is available: Easy (<120), Aerobic (120–139), Tempo (140–159), Threshold (160–174), Max (175+).
 
-HR zone feedback is appended to every message when HR data is available: Easy (<120), Aerobic (120–139), Tempo (140–159), Threshold (160–174), Max (175+).
+`analyzePace()` returns `null` when only distance or only time is set, or when the goal is already complete.
 
-`analyzePace()` returns `null` when only distance or only time is set (no combined pace target is computable), or when the goal is already complete.
+(A coaching-mode preference — Quiet / Spoken / Haptic — plus structured workout support is planned for a later pass and not yet wired.)
 
 ### State Management
 
-All state is plain `let` variables in the script's top scope. Key variables:
-- `goalDistance` (km | null), `goalTime` (minutes | null), `goalConfirmed` (bool)
-- `lastData` — last parsed treadmill packet, shape: `{ speed, incline, distance, calories, time, heartRate }`
+All state is plain `let` variables at the top of `app.js`. Key variables:
+
+- `appState` — `'prerun' | 'active' | 'postrun'`
+- `sessionMode` — `'free' | 'goal' | 'workout'`
+- `goalDistance` (km | null), `goalTime` (minutes | null), `goalConfirmed`
+- `lastData` — last parsed treadmill packet: `{ speed, incline, distance, calories, time, heartRate }`
 - `hrBpm` — current HR from external monitor (0 if not connected)
-- `sessionMaxSpeed`, `sessionSpeedSum`, `sessionSpeedCount` — reset on each `onConnected()`, used to compute avg/max for history
+- `sessionMaxSpeed`, `sessionSpeedSum`, `sessionSpeedCount` — reset on each session, used to compute avg/max for saved records
+- `splits`, `speedSamples` — for per-km splits and sparklines
 
-### Workout History
+### Workout History / Personal Bests
 
-Saved to `localStorage` under key `'runHistory'` as a JSON array (max 10 entries, oldest dropped). A workout is only saved if `distance >= 0.05 km` AND `time >= 30s`. Goal achievement uses a 95% threshold (`distOk`, `timeOk`).
+Local: `localStorage` under `runHistory:guest` (or `runHistory:<uid>` when signed in). Max 10 entries, oldest dropped. A workout is only saved if `distance >= 0.05 km` AND `time >= 30 s`. Goal achievement uses a 95 % threshold.
 
-History is saved on `manualDisconnect` or after exhausting reconnect attempts.
+Personal Bests (1–10 km) kept under `personalBests:guest` or `personalBests:<uid>` and mirrored to Firestore when signed in. Computed from a workout's per-km splits.
+
+History is saved via the Stop-Run modal (user taps Save) or auto-saved when reconnect attempts are exhausted.
 
 ## Key Constants
 
@@ -88,7 +122,7 @@ TREADMILL_DATA_UUID = 0x2ACD   HR_MEASUREMENT_UUID = 0x2A37
 CONTROL_POINT_UUID  = 0x2AD9
 
 SPEED_STEP = 0.5 km/h    SPEED_MIN = 0    SPEED_MAX = 25
-INCLINE_STEP = 0.5%      INCLINE_MIN = 0  INCLINE_MAX = 15
+INCLINE_STEP = 0.5 %     INCLINE_MIN = 0  INCLINE_MAX = 15
 COACHING_INTERVAL = 15 000 ms
 MAX_RECONNECT_TRIES = 5
 HISTORY_MAX = 10
@@ -96,4 +130,4 @@ HISTORY_MAX = 10
 
 ## Target Device
 
-Black Lord treadmill, Bluetooth name **FS-4FF13D**. Exposes FTMS with speed, distance, incline, calories, time, and HR (via flag `0x100`). Control Point is available on this device.
+Black Lord treadmill, Bluetooth name **FS-4FF13D**. Exposes FTMS with speed, distance, incline, calories, time, and HR (via flag `0x100`). Control Point is available on this device → classifies as Controllable FTMS.

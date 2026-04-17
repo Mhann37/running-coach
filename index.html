@@ -15,57 +15,73 @@
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-state="prerun">
 <div class="container">
 
     <div class="header">
         <div>
             <h1>Running Coach</h1>
-            <p>Real-time treadmill coaching via BLE</p>
+            <p>Treadmill-first BLE coach · Alpha</p>
         </div>
         <button class="btn-history-fab hidden" id="historyFab">History</button>
     </div>
 
-    <!-- Connect -->
-    <div class="card">
-        <div class="connect-row">
-            <button id="connectBtn" class="btn-connect">Connect</button>
-            <div id="status" class="status disconnected">Not Connected</div>
-        </div>
-        <div class="connect-row">
-            <button id="hrConnectBtn" class="btn-connect btn-connect-hr">HR Monitor</button>
-            <div id="hrStatus" class="status disconnected">HR Not Connected</div>
+    <!-- Status chip row -->
+    <div class="chip-row" id="chipRow">
+        <button class="chip chip-tappable" id="treadmillChip" aria-label="Treadmill connection">
+            <span class="chip-dot"></span>
+            <span class="chip-label">Treadmill</span>
+            <span class="chip-value" id="treadmillChipText">Not connected</span>
+        </button>
+        <button class="chip chip-tappable" id="hrChip" aria-label="Heart rate monitor">
+            <span class="chip-dot"></span>
+            <span class="chip-label">HR</span>
+            <span class="chip-value" id="hrChipText">Off</span>
+        </button>
+        <div class="chip" id="supportModeChip">
+            <span class="chip-label">Mode</span>
+            <span class="chip-value" id="supportModeChipText">Disconnected</span>
         </div>
     </div>
 
-    <!-- Account -->
-    <div class="card" id="authCard">
-        <div class="card-title">Account</div>
-        <div class="status disconnected" id="authStatus">Signed out</div>
-        <button id="googleSignInBtn" class="btn-secondary">Sign in with Google</button>
-        <button id="googleSignOutBtn" class="btn-secondary" style="display:none;">Sign out</button>
-    </div>
+    <!-- Today's Run (pre-run hero card) -->
+    <div class="card today-card" id="goalCard">
+        <div class="card-title">Today's Run</div>
 
-    <!-- Goal Input Card -->
-    <div class="card goal-card" id="goalCard">
-        <div class="card-title">Today's Goal</div>
-        <div id="goalInputSection">
-            <div class="goal-header">What are you aiming for today?</div>
-            <div class="goal-subtext">Set a target to get personalised coaching. Leave blank to run freely.</div>
-            <div class="goal-inputs">
+        <!-- Session mode selector -->
+        <div class="mode-selector" id="modeSelector" role="tablist" aria-label="Session mode">
+            <button class="btn-mode active" data-mode="free" id="modeFreeBtn">Free Run</button>
+            <button class="btn-mode" data-mode="goal" id="modeGoalBtn">Goal Run</button>
+            <button class="btn-mode" data-mode="workout" id="modeWorkoutBtn" disabled>Workout<span class="mode-coming">soon</span></button>
+        </div>
+
+        <div id="goalInputSection" class="goal-input-section">
+            <div class="goal-header" id="modeHeader">Set out and run at your own pace.</div>
+            <div class="goal-subtext" id="modeSubtext">No target, no pressure — coach will react to your effort.</div>
+            <div class="goal-inputs" id="goalInputsWrap" hidden>
                 <div class="goal-field">
                     <label>Distance</label>
-                    <input type="number" id="goalDistanceInput" placeholder="—" min="0.1" max="100" step="0.1">
+                    <input type="number" id="goalDistanceInput" placeholder="—" min="0.1" max="100" step="0.1" inputmode="decimal">
                     <div class="goal-unit">kilometres</div>
                 </div>
                 <div class="goal-field">
                     <label>Time</label>
-                    <input type="number" id="goalTimeInput" placeholder="—" min="1" max="600" step="1">
+                    <input type="number" id="goalTimeInput" placeholder="—" min="1" max="600" step="1" inputmode="numeric">
                     <div class="goal-unit">minutes</div>
                 </div>
             </div>
-            <button class="btn-goal" id="setGoalBtn">Let's Go</button>
+
+            <!-- Capability summary (shown when connected) -->
+            <div class="capability-summary hidden" id="capabilitySummary">
+                <div class="cap-title">On this treadmill</div>
+                <div class="cap-list" id="capList"></div>
+            </div>
+
+            <!-- Primary CTA -->
+            <button class="btn-primary-cta" id="setGoalBtn" disabled data-action="connect">Connect Treadmill</button>
+            <div class="cta-hint" id="ctaHint">Tap to pair via Bluetooth (Chrome on Android).</div>
         </div>
+
         <div class="goal-summary" id="goalSummary">
             <span id="goalSummaryText"></span>
             <button class="btn-edit-goal" id="editGoalBtn">Edit</button>
@@ -76,8 +92,8 @@
     <div class="card coach-card" id="coachingCard">
         <div class="card-title">Coach</div>
         <div class="coaching-message" id="coachingMessage">
-            <strong>Ready to go</strong>
-            Set your goal above, then start your run for real-time coaching.
+            <strong>Ready when you are</strong>
+            Connect your treadmill, choose a mode, then tap the primary button to start.
         </div>
         <div class="coach-timer" id="coachTimer"></div>
     </div>
@@ -167,19 +183,33 @@
         </div>
     </div>
 
-    <!-- Personal Bests -->
-    <div class="card" id="personalBestsCard">
-        <div class="card-title">Personal Bests</div>
+    <!-- Secondary: Personal Bests (collapsible) -->
+    <details class="card card-secondary" id="personalBestsCard">
+        <summary class="secondary-summary">Personal Bests</summary>
         <div class="pb-empty" id="personalBestsEmpty">No PRs yet. Complete a save to start building your 1–10 km bests.</div>
         <div class="pb-table hidden" id="personalBestsTable"></div>
-    </div>
+    </details>
+
+    <!-- Secondary: Account (collapsible) -->
+    <details class="card card-secondary" id="authCard">
+        <summary class="secondary-summary">Account</summary>
+        <div class="status disconnected" id="authStatus">Signed out</div>
+        <button id="googleSignInBtn" class="btn-secondary">Sign in with Google</button>
+        <button id="googleSignOutBtn" class="btn-secondary" style="display:none;">Sign out</button>
+    </details>
 
     <!-- Debug -->
-    <div class="card card-debug">
-        <details>
-            <summary class="debug-summary">Debug</summary>
-            <div id="debug" class="debug"></div>
-        </details>
+    <details class="card card-secondary card-debug">
+        <summary class="secondary-summary">Debug</summary>
+        <div id="debug" class="debug"></div>
+    </details>
+
+    <!-- Hidden legacy controls — kept for JS compatibility -->
+    <div class="legacy-hidden">
+        <button id="connectBtn">Connect</button>
+        <div id="status" class="status disconnected">Not Connected</div>
+        <button id="hrConnectBtn">HR Monitor</button>
+        <div id="hrStatus" class="status disconnected">HR Not Connected</div>
     </div>
 
 </div>
