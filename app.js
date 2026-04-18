@@ -2178,6 +2178,7 @@
             runId,
             uid,
             savedAt: new Date().toISOString(),
+            speedSamples: toFirestoreSpeedSamples(workout.speedSamples),
             telemetrySampleCount: telemetry.length,
             telemetryChunkCount: Math.ceil(telemetry.length / TELEMETRY_CHUNK_SIZE),
             telemetrySamples: undefined
@@ -2377,6 +2378,52 @@
 
     function sanitizeForFirestore(value) {
         return JSON.parse(JSON.stringify(value));
+    }
+
+    function toFirestoreSpeedSamples(samples) {
+        if (!Array.isArray(samples)) return [];
+        return samples
+            .map(s => {
+                if (Array.isArray(s)) {
+                    const timeSec = Number(s[0]);
+                    const speedKmh = Number(s[1]);
+                    return {
+                        timeSec: Number.isFinite(timeSec) ? timeSec : 0,
+                        speedKmh: Number.isFinite(speedKmh) ? speedKmh : 0
+                    };
+                }
+
+                if (s && typeof s === 'object') {
+                    const timeSec = Number(s.timeSec ?? s.t ?? s.time ?? 0);
+                    const speedKmh = Number(s.speedKmh ?? s.speed ?? 0);
+                    return {
+                        timeSec: Number.isFinite(timeSec) ? timeSec : 0,
+                        speedKmh: Number.isFinite(speedKmh) ? speedKmh : 0
+                    };
+                }
+
+                return null;
+            })
+            .filter(Boolean);
+    }
+
+    function normalizeSpeedSamplesForPlot(samples) {
+        if (!Array.isArray(samples)) return [];
+        return samples
+            .map(s => {
+                if (Array.isArray(s)) {
+                    const t = Number(s[0]);
+                    const v = Number(s[1]);
+                    return [Number.isFinite(t) ? t : 0, Number.isFinite(v) ? v : 0];
+                }
+                if (s && typeof s === 'object') {
+                    const t = Number(s.timeSec ?? s.t ?? s.time ?? 0);
+                    const v = Number(s.speedKmh ?? s.speed ?? 0);
+                    return [Number.isFinite(t) ? t : 0, Number.isFinite(v) ? v : 0];
+                }
+                return null;
+            })
+            .filter(Boolean);
     }
 
     /**
@@ -2685,16 +2732,17 @@
      * @param {string} gradId - unique gradient element ID
      */
     function renderSparkline(samples, gradId) {
-        if (!samples || samples.length < 2) return '';
+        const normalized = normalizeSpeedSamplesForPlot(samples);
+        if (!normalized || normalized.length < 2) return '';
 
-        const speeds = samples.map(s => s[1]);
+        const speeds = normalized.map(s => s[1]);
         const minS   = Math.min(...speeds);
         const maxS   = Math.max(...speeds);
         const range  = maxS - minS || 1;
         const W = 280, H = 32, pad = 2;
 
-        const pts = samples.map((s, i) => {
-            const x = pad + (i / (samples.length - 1)) * (W - pad * 2);
+        const pts = normalized.map((s, i) => {
+            const x = pad + (i / (normalized.length - 1)) * (W - pad * 2);
             const y = H - pad - ((s[1] - minS) / range) * (H - pad * 2);
             return `${x.toFixed(1)},${y.toFixed(1)}`;
         }).join(' ');
