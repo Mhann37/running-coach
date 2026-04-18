@@ -270,6 +270,7 @@
     const historyOverlay  = document.getElementById('historyOverlay');
     const closeHistoryBtn = document.getElementById('closeHistoryBtn');
     const historyList     = document.getElementById('historyList');
+    const historyInlineList = document.getElementById('historyInlineList');
     const personalBestsCard      = document.getElementById('personalBestsCard');
     const personalBestsEmpty     = document.getElementById('personalBestsEmpty');
     const personalBestsTable     = document.getElementById('personalBestsTable');
@@ -293,6 +294,7 @@
 
     // Show history FAB if there are saved runs
     if (getHistory().length > 0) historyFab.classList.remove('hidden');
+    renderRunHistory();
 
     // Initial PR visibility + Firebase initialization.
     refreshPersonalBestsVisibility();
@@ -469,6 +471,7 @@
                 const workout = buildWorkoutRecord(sd, { finalDistanceKm });
                 await persistWorkout(workout);
                 historyFab.classList.remove('hidden');
+                renderRunHistory();
             }
             stopModal.classList.remove('active');
             finishSession();
@@ -860,6 +863,7 @@
                 if (authUser) {
                     syncUserDataFromFirestore(authUser.uid).catch(e => log(`PR sync error: ${e.message}`));
                 }
+                renderRunHistory();
                 refreshPersonalBestsVisibility();
             });
 
@@ -897,10 +901,10 @@
     // ── Firestore sync (runs + PRs) ──────────────────────────────────────────
     async function syncUserDataFromFirestore(uid) {
         if (!firebaseDb || !uid) return;
-        await Promise.all([
-            loadPersonalBestsFromFirestore(uid),
-            loadRunsFromFirestore(uid)
-        ]);
+        await loadPersonalBestsFromFirestore(uid);
+        queueLegacyUnsyncedHistoryRuns();
+        await flushPendingRunSync();
+        await loadRunsFromFirestore(uid);
     }
 
     async function loadPersonalBestsFromFirestore(uid) {
@@ -935,15 +939,12 @@
             .limit(HISTORY_MAX);
 
         const snap = await runsRef.get();
-        const runs = snap.docs.map(d => d.data());
+        const cloudRuns = snap.docs.map(d => ({ ...d.data(), cloudStatus: 'synced' }));
+        const runs = mergeRunHistories(cloudRuns, getHistory());
 
         localStorage.setItem(`runHistory:${uid}`, JSON.stringify(runs));
 
-        // Update History FAB + overlay content when available.
-        historyFab.classList.toggle('hidden', runs.length === 0);
-        if (historyOverlay.classList.contains('active')) {
-            renderHistoryOverlay();
-        }
+        renderRunHistory();
         return runs;
     }
 
@@ -2125,8 +2126,11 @@
               }))
             : null;
 
+        const finishedAtIso = new Date().toISOString();
+
         return {
-            date:         new Date().toISOString(),
+            runId:        createRunId(finishedAtIso),
+            date:         finishedAtIso,
             startedAt:    sessionStartedAtIso,
             duration:     sd.time,
             // `distance` is the saved/final value (possibly user-corrected).
@@ -2160,8 +2164,8 @@
         if (!authEnabled || !authUser || !firebaseDb || !workout) return;
 
         const uid = authUser.uid;
-        const safeDatePart = String(workout.date || '').replace(/[^0-9a-zA-Z]/g, '');
-        const runId = `run_${safeDatePart}_${Math.random().toString(16).slice(2)}`;
+        const runId = workout.runId || createRunId(workout.date);
+        workout.runId = runId;
 
         const runRef = firebaseDb
             .collection('users').doc(uid)
@@ -2198,28 +2202,177 @@
         }
 
         log(`Run synced to cloud: ${runId}`);
+        return runId;
     }
 
     async function persistWorkout(workout) {
-        const history = getHistory();
-        history.unshift(getHistoryWorkoutRecord(workout));
-        if (history.length > HISTORY_MAX) history.length = HISTORY_MAX;
-        localStorage.setItem(getRunHistoryCacheKey(), JSON.stringify(history));
+        workout.runId = workout.runId || createRunId(workout.date);
+        saveWorkoutToHistory(workout, authEnabled && authUser ? 'pending' : 'local');
 
         // Update personal bests (1–10km) whenever we successfully save a run.
         if (isUserSignedIn()) updatePersonalBestsFromWorkout(workout);
 
         // Also persist the run to Firestore for per-user history.
         if (authEnabled && authUser && firebaseDb) {
-            await persistWorkoutToFirestore(workout);
+            try {
+                await persistWorkoutToFirestore(workout);
+                removePendingRunSync(workout.runId);
+                markHistoryCloudSynced(workout.runId);
+            } catch (e) {
+                queuePendingRunSync(workout);
+                renderRunHistory();
+                throw e;
+            }
         }
 
+        renderRunHistory();
         log(`Workout saved: ${workout.distance.toFixed(2)} km, ${formatDuration(workout.duration)}`);
+    }
+
+    function createRunId(dateIso) {
+        if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+            return `run_${crypto.randomUUID()}`;
+        }
+        const safeDatePart = String(dateIso || new Date().toISOString()).replace(/[^0-9a-zA-Z]/g, '');
+        return `run_${safeDatePart}_${Math.random().toString(16).slice(2)}`;
+    }
+
+    function saveWorkoutToHistory(workout, cloudStatus) {
+        const history = getHistory();
+        const record = getHistoryWorkoutRecord(workout);
+        record.cloudStatus = cloudStatus || record.cloudStatus || 'local';
+
+        const existingIdx = history.findIndex(w => getWorkoutIdentity(w) === getWorkoutIdentity(record));
+        if (existingIdx >= 0) history.splice(existingIdx, 1);
+        history.unshift(record);
+        history.sort(compareRunsDesc);
+        if (history.length > HISTORY_MAX) history.length = HISTORY_MAX;
+        localStorage.setItem(getRunHistoryCacheKey(), JSON.stringify(history));
     }
 
     function getHistoryWorkoutRecord(workout) {
         const { telemetrySamples, ...historyRecord } = workout || {};
         return historyRecord;
+    }
+
+    function getPendingRunSyncKey() {
+        return (authEnabled && authUser) ? `pendingRunSync:${authUser.uid}` : null;
+    }
+
+    function getPendingRunSyncQueue() {
+        const key = getPendingRunSyncKey();
+        if (!key) return [];
+        try { return JSON.parse(localStorage.getItem(key) || '[]'); }
+        catch { return []; }
+    }
+
+    function setPendingRunSyncQueue(queue) {
+        const key = getPendingRunSyncKey();
+        if (!key) return;
+        localStorage.setItem(key, JSON.stringify(queue.slice(0, HISTORY_MAX)));
+    }
+
+    function queuePendingRunSync(workout) {
+        const key = getPendingRunSyncKey();
+        if (!key || !workout) return;
+        const queue = getPendingRunSyncQueue();
+        const runId = workout.runId || createRunId(workout.date);
+        workout.runId = runId;
+        const idx = queue.findIndex(w => getWorkoutIdentity(w) === runId);
+        if (idx >= 0) queue.splice(idx, 1);
+        queue.unshift(workout);
+        try {
+            setPendingRunSyncQueue(queue);
+            markHistoryCloudPending(runId);
+            log(`Queued run for cloud retry: ${runId}`);
+        } catch (e) {
+            log(`Run retry queue failed: ${e.message || e}`);
+        }
+    }
+
+    function removePendingRunSync(runId) {
+        if (!runId) return;
+        const queue = getPendingRunSyncQueue().filter(w => getWorkoutIdentity(w) !== runId);
+        setPendingRunSyncQueue(queue);
+    }
+
+    async function flushPendingRunSync() {
+        if (!authEnabled || !authUser || !firebaseDb) return;
+        const queue = getPendingRunSyncQueue();
+        if (queue.length === 0) return;
+
+        for (const workout of queue.slice()) {
+            try {
+                workout.runId = workout.runId || createRunId(workout.date);
+                await persistWorkoutToFirestore(workout);
+                removePendingRunSync(workout.runId);
+                markHistoryCloudSynced(workout.runId);
+                log(`Pending run synced: ${workout.runId}`);
+            } catch (e) {
+                markHistoryCloudPending(workout.runId);
+                log(`Pending run sync failed: ${e.message || e}`);
+                break;
+            }
+        }
+    }
+
+    function queueLegacyUnsyncedHistoryRuns() {
+        if (!authEnabled || !authUser) return;
+        const history = getHistory();
+        let changed = false;
+
+        history.forEach(w => {
+            if (!w || w.cloudStatus === 'synced' || w.cloudSyncedAt) return;
+            w.runId = w.runId || createRunId(w.date);
+            w.cloudStatus = 'pending';
+            queuePendingRunSync({ ...w, telemetrySamples: [] });
+            changed = true;
+        });
+
+        if (changed) {
+            history.sort(compareRunsDesc);
+            localStorage.setItem(getRunHistoryCacheKey(), JSON.stringify(history.slice(0, HISTORY_MAX)));
+        }
+    }
+
+    function markHistoryCloudPending(runId) {
+        updateHistoryCloudStatus(runId, 'pending');
+    }
+
+    function markHistoryCloudSynced(runId) {
+        updateHistoryCloudStatus(runId, 'synced', new Date().toISOString());
+    }
+
+    function updateHistoryCloudStatus(runId, status, syncedAt) {
+        if (!runId) return;
+        const history = getHistory();
+        const idx = history.findIndex(w => getWorkoutIdentity(w) === runId);
+        if (idx < 0) return;
+        history[idx].runId = runId;
+        history[idx].cloudStatus = status;
+        if (syncedAt) history[idx].cloudSyncedAt = syncedAt;
+        localStorage.setItem(getRunHistoryCacheKey(), JSON.stringify(history));
+        renderRunHistory();
+    }
+
+    function mergeRunHistories(primary, secondary) {
+        const byId = new Map();
+        [...(secondary || []), ...(primary || [])].forEach(w => {
+            if (!w) return;
+            const id = getWorkoutIdentity(w);
+            if (!id) return;
+            byId.set(id, { ...(byId.get(id) || {}), ...w });
+        });
+        return Array.from(byId.values()).sort(compareRunsDesc).slice(0, HISTORY_MAX);
+    }
+
+    function getWorkoutIdentity(workout) {
+        if (!workout) return '';
+        return workout.runId || `${workout.date || ''}|${workout.duration || ''}|${workout.distance || ''}`;
+    }
+
+    function compareRunsDesc(a, b) {
+        return new Date(b && b.date ? b.date : 0) - new Date(a && a.date ? a.date : 0);
     }
 
     function sanitizeForFirestore(value) {
@@ -2399,18 +2552,31 @@
     }
 
     // ── History overlay ────────────────────────────────────────────────────────
-    function renderHistoryOverlay() {
+    function renderRunHistory() {
         const history = getHistory();
+        if (historyFab) historyFab.classList.toggle('hidden', history.length === 0);
+        renderHistoryList(historyInlineList, history);
+        if (historyOverlay && historyOverlay.classList.contains('active')) {
+            renderHistoryOverlay();
+        }
+    }
+
+    function renderHistoryOverlay() {
+        renderHistoryList(historyList, getHistory());
+    }
+
+    function renderHistoryList(targetEl, history) {
+        if (!targetEl) return;
 
         if (history.length === 0) {
             const empty = document.createElement('div');
             empty.className = 'history-empty';
             empty.textContent = 'No runs saved yet — complete a session to see your history.';
-            historyList.replaceChildren(empty);
+            targetEl.replaceChildren(empty);
             return;
         }
 
-        historyList.replaceChildren();
+        targetEl.replaceChildren();
         history.forEach((w, idx) => {
             // Collision-proof gradient ID using sanitised ISO date string
             const safeDateForId = String(w.date || '').replace(/[^a-zA-Z0-9]/g, '');
@@ -2448,6 +2614,14 @@
                 goalBadgeEl.className = `history-goal-badge ${goalState}`;
                 goalBadgeEl.textContent = goalState === 'achieved' ? '✓ Goal achieved' : '~ Partial goal';
                 headerEl.appendChild(goalBadgeEl);
+            }
+
+            if (authEnabled && authUser) {
+                const cloudBadgeEl = document.createElement('span');
+                const cloudState = w.cloudStatus === 'synced' ? 'synced' : 'pending';
+                cloudBadgeEl.className = `history-cloud-badge ${cloudState}`;
+                cloudBadgeEl.textContent = cloudState === 'synced' ? 'Cloud saved' : 'Sync pending';
+                headerEl.appendChild(cloudBadgeEl);
             }
 
             const metricsEl = document.createElement('div');
@@ -2501,7 +2675,7 @@
                 rawHintEl.textContent = `Machine reported ${Number(w.rawDistanceKm).toFixed(2)} km · saved ${Number(w.distance).toFixed(2)} km`;
                 itemEl.appendChild(rawHintEl);
             }
-            historyList.appendChild(itemEl);
+            targetEl.appendChild(itemEl);
         });
     }
 

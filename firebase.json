@@ -1,4 +1,8 @@
 {
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
   "hosting": {
     "public": ".",
     "ignore": [
@@ -13,7 +17,9 @@
       "CLAUDE.md",
       "config.example.js",
       "firebase-config.example.json",
-      "firebase-config.json"
+      "firebase-config.json",
+      "firestore.rules",
+      "firestore.indexes.json"
     ],
     "headers": [
       {

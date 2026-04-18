@@ -35,6 +35,7 @@ A static web app that turns a Chrome-on-Android phone into a coaching head-unit 
 ## Deploying to Firebase Hosting
 
 Firebase Hosting config lives at `firebase.json` and `.firebaserc`. The project is `running-coach-ee164`.
+Firestore uses the default database in `australia-southeast1` (Sydney), with owner-only rules from `firestore.rules`.
 
 **Manual one-off deploy (from your machine):**
 
@@ -91,6 +92,7 @@ Workflows live at `.github/workflows/firebase-hosting-merge.yml` (pushes to `mai
 - Workout-block summary (Workout mode): per-block duration, target band, and `✓`/`•` markers for completed / current.
 - Local history (last 10 runs) in `localStorage`; Firestore sync when signed in with Google. Each run stores raw vs final distance, session mode, support mode, coaching mode, capability snapshot, and (for workouts) a block summary.
 - Signed-in Firestore storage uses `users/{uid}/runs/{runId}` for the run summary and `users/{uid}/runs/{runId}/telemetryChunks/{chunkId}` for packet-level telemetry: speed, distance, raw distance, incline, calories, treadmill time, HR source/value, targets, pause state, workout block, and target band.
+- Run History is available directly in the app and marks signed-in runs as Cloud saved or Sync pending. Pending local runs retry automatically after sign-in / Firestore recovery.
 - History cards show a session-mode badge and a raw-vs-saved distance hint when corrected.
 - Personal Bests (1–10 km) computed from split data.
 
