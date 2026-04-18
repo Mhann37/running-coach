@@ -89,7 +89,8 @@ Workflows live at `.github/workflows/firebase-hosting-merge.yml` (pushes to `mai
 - Summary grid: distance, time, avg pace, best 1 km pace, calories.
 - **Distance correction** — pre-filled with the machine-reported value; edit it if the treadmill's distance is off. "Reset to machine" restores the raw value. Corrected distance flows into `goalAchieved` and history.
 - Workout-block summary (Workout mode): per-block duration, target band, and `✓`/`•` markers for completed / current.
-- Local history (last 10 runs) in `localStorage`; optional Firestore sync when signed in with Google. Each run stores raw vs final distance, session mode, support mode, coaching mode, capability snapshot, and (for workouts) a block summary.
+- Local history (last 10 runs) in `localStorage`; Firestore sync when signed in with Google. Each run stores raw vs final distance, session mode, support mode, coaching mode, capability snapshot, and (for workouts) a block summary.
+- Signed-in Firestore storage uses `users/{uid}/runs/{runId}` for the run summary and `users/{uid}/runs/{runId}/telemetryChunks/{chunkId}` for packet-level telemetry: speed, distance, raw distance, incline, calories, treadmill time, HR source/value, targets, pause state, workout block, and target band.
 - History cards show a session-mode badge and a raw-vs-saved distance hint when corrected.
 - Personal Bests (1–10 km) computed from split data.
 

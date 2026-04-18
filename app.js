@@ -17,6 +17,7 @@
     const HISTORY_MAX         = 10;
     const SPEED_SAMPLE_INTERVAL_MS = 30000; // one sample per 30 s
     const SPEED_SAMPLE_MAX    = 120;
+    const TELEMETRY_CHUNK_SIZE = 300;
 
     // ── State ──────────────────────────────────────────────────────────────────
     let device                      = null;
@@ -157,6 +158,8 @@
     let prevSdTime        = null;    // previous packet's session-relative time (s)
     let speedSamples      = [];      // [[sessionTimeSec, speedKmh], ...]
     let lastSpeedSampleMs = 0;
+    let telemetrySamples  = [];      // packet-level run data for Firestore
+    let sessionStartedAtIso = null;
 
     // ── UI refs ────────────────────────────────────────────────────────────────
     const connectBtn       = document.getElementById('connectBtn');
@@ -451,22 +454,34 @@
     stopBtn.addEventListener('click', () => stopSession());
 
     // Stop modal actions
-    saveRunBtn.addEventListener('click', () => {
+    saveRunBtn.addEventListener('click', async () => {
         if (endRunBusy) return;
         endRunBusy = true;
+        saveRunBtn.disabled = true;
+        saveRunBtn.textContent = 'Saving...';
 
         const sd = getSessionData(lastData);
-        if (sd) {
-            // Read user-corrected distance from the input (falls back to raw).
-            const parsed = parseFloat(stopModalFinalDist.value);
-            const finalDistanceKm = (Number.isFinite(parsed) && parsed >= 0) ? parsed : sd.distance;
-            const workout = buildWorkoutRecord(sd, { finalDistanceKm });
-            persistWorkout(workout);
-            historyFab.classList.remove('hidden');
+        try {
+            if (sd) {
+                // Read user-corrected distance from the input (falls back to raw).
+                const parsed = parseFloat(stopModalFinalDist.value);
+                const finalDistanceKm = (Number.isFinite(parsed) && parsed >= 0) ? parsed : sd.distance;
+                const workout = buildWorkoutRecord(sd, { finalDistanceKm });
+                await persistWorkout(workout);
+                historyFab.classList.remove('hidden');
+            }
+            stopModal.classList.remove('active');
+            finishSession();
+        } catch (e) {
+            log(`Save failed: ${e.message || e}`);
+            setAuthStatus('Run saved locally, but cloud sync failed. Check Account diagnostics.', 'error');
+            stopModal.classList.remove('active');
+            finishSession();
+        } finally {
+            saveRunBtn.disabled = false;
+            saveRunBtn.textContent = 'Save Run';
+            endRunBusy = false;
         }
-        stopModal.classList.remove('active');
-        finishSession();
-        endRunBusy = false;
     });
 
     // Reset distance input to machine-reported raw value
@@ -962,6 +977,8 @@
         prevSdTime        = null;
         speedSamples      = [];
         lastSpeedSampleMs = 0;
+        telemetrySamples  = [];
+        sessionStartedAtIso = null;
         paused            = false;
         pauseBtn.textContent = 'Pause';
         pauseBtn.classList.remove('paused');
@@ -1284,7 +1301,7 @@
     async function tryReconnect() {
         if (reconnectAttempts >= MAX_RECONNECT_TRIES) {
             log('Max reconnect attempts reached — giving up');
-            autoSaveOnDisconnect();
+            await autoSaveOnDisconnect();
             resetUI();
             updateStatus('disconnected', 'Connection lost');
             return;
@@ -1486,10 +1503,12 @@
             sessionStartDistance      = data.distance;
             sessionStartTreadmillTime = data.time;
             sessionStartCalories      = data.calories;
+            sessionStartedAtIso       = new Date().toISOString();
             log(`Session start captured: dist=${data.distance.toFixed(3)}, time=${data.time}s, cal=${data.calories}`);
         }
 
         const sd = getSessionData(data);
+        captureTelemetrySample(data, sd);
 
         // ── Speed accumulators ─────────────────────────────────────────────────
         if (data.speed > 0) {
@@ -1778,6 +1797,27 @@
         return data;
     }
 
+    function captureTelemetrySample(data, sd) {
+        if (!sd) return;
+        telemetrySamples.push({
+            t: Math.round(sd.time * 10) / 10,
+            capturedAt: new Date().toISOString(),
+            speedKmh: Number(data.speed.toFixed(2)),
+            distanceKm: Number(sd.distance.toFixed(4)),
+            rawDistanceKm: Number(data.distance.toFixed(4)),
+            inclinePct: Number(data.incline.toFixed(1)),
+            calories: sd.calories,
+            treadmillTimeSec: data.time,
+            heartRateBpm: hrBpm > 0 ? hrBpm : (data.heartRate || null),
+            heartRateSource: hrBpm > 0 ? 'external' : (data.heartRate > 0 ? 'treadmill' : null),
+            targetSpeedKmh: Number(targetSpeed.toFixed(1)),
+            targetInclinePct: Number(targetIncline.toFixed(1)),
+            paused: !!paused,
+            workoutBlockIdx: activeWorkout ? workoutBlockIdx : null,
+            targetBand: getActiveTargetBand()
+        });
+    }
+
     /**
      * Updates the UI metrics display.
      * @param {object} data  - raw BLE data (cumulative)
@@ -2017,6 +2057,7 @@
             : rawDistanceKm;
         // Distance used for all downstream metrics is the final (possibly corrected) value.
         const distanceKm = finalDistanceKm;
+        const durationSec = Number(sd.time) || 0;
 
         // Overall pace: Strava-style "min/km" from total distance + total time.
         const avgPaceMinPerKm = distanceKm > 0
@@ -2086,6 +2127,7 @@
 
         return {
             date:         new Date().toISOString(),
+            startedAt:    sessionStartedAtIso,
             duration:     sd.time,
             // `distance` is the saved/final value (possibly user-corrected).
             distance:     parseFloat(distanceKm.toFixed(3)),
@@ -2108,7 +2150,9 @@
             capabilitySummary: capabilitySnapshot,
             blockSummary: blockSummary,
             speedSamples: speedSamples.slice(),
-            splits:       kmSplits
+            splits:       kmSplits,
+            telemetrySampleCount: telemetrySamples.length,
+            telemetrySamples: telemetrySamples.slice()
         };
     }
 
@@ -2119,18 +2163,46 @@
         const safeDatePart = String(workout.date || '').replace(/[^0-9a-zA-Z]/g, '');
         const runId = `run_${safeDatePart}_${Math.random().toString(16).slice(2)}`;
 
-        // Save the full workout record (including splits + derived metrics).
-        await firebaseDb
+        const runRef = firebaseDb
             .collection('users').doc(uid)
-            .collection('runs').doc(runId)
-            .set({ ...workout, runId }, { merge: false });
+            .collection('runs').doc(runId);
+        const telemetry = Array.isArray(workout.telemetrySamples)
+            ? workout.telemetrySamples
+            : [];
+        const summary = sanitizeForFirestore({
+            ...workout,
+            runId,
+            uid,
+            savedAt: new Date().toISOString(),
+            telemetrySampleCount: telemetry.length,
+            telemetryChunkCount: Math.ceil(telemetry.length / TELEMETRY_CHUNK_SIZE),
+            telemetrySamples: undefined
+        });
+
+        await runRef.set(summary, { merge: false });
+
+        for (let i = 0; i < telemetry.length; i += TELEMETRY_CHUNK_SIZE) {
+            const chunkIndex = Math.floor(i / TELEMETRY_CHUNK_SIZE);
+            const chunk = sanitizeForFirestore({
+                runId,
+                chunkIndex,
+                startIndex: i,
+                endIndex: Math.min(i + TELEMETRY_CHUNK_SIZE, telemetry.length) - 1,
+                sampleCount: Math.min(TELEMETRY_CHUNK_SIZE, telemetry.length - i),
+                samples: telemetry.slice(i, i + TELEMETRY_CHUNK_SIZE)
+            });
+
+            await runRef.collection('telemetryChunks')
+                .doc(String(chunkIndex).padStart(4, '0'))
+                .set(chunk, { merge: false });
+        }
 
         log(`Run synced to cloud: ${runId}`);
     }
 
-    function persistWorkout(workout) {
+    async function persistWorkout(workout) {
         const history = getHistory();
-        history.unshift(workout);
+        history.unshift(getHistoryWorkoutRecord(workout));
         if (history.length > HISTORY_MAX) history.length = HISTORY_MAX;
         localStorage.setItem(getRunHistoryCacheKey(), JSON.stringify(history));
 
@@ -2138,26 +2210,38 @@
         if (isUserSignedIn()) updatePersonalBestsFromWorkout(workout);
 
         // Also persist the run to Firestore for per-user history.
-        // Fire-and-forget: persistence failures shouldn't block local saving.
         if (authEnabled && authUser && firebaseDb) {
-            persistWorkoutToFirestore(workout).catch(e => log(`Run save failed: ${e.message}`));
+            await persistWorkoutToFirestore(workout);
         }
 
         log(`Workout saved: ${workout.distance.toFixed(2)} km, ${formatDuration(workout.duration)}`);
+    }
+
+    function getHistoryWorkoutRecord(workout) {
+        const { telemetrySamples, ...historyRecord } = workout || {};
+        return historyRecord;
+    }
+
+    function sanitizeForFirestore(value) {
+        return JSON.parse(JSON.stringify(value));
     }
 
     /**
      * Auto-save path: called on Disconnect button or max-reconnect failure.
      * Uses session-relative data, same full format as modal save.
      */
-    function autoSaveOnDisconnect() {
+    async function autoSaveOnDisconnect() {
         const sd = getSessionData(lastData);
         if (!sd || sd.distance < 0.05 || sd.time < 30) {
             log('Nothing to auto-save (session too short)');
             return;
         }
         const workout = buildWorkoutRecord(sd);
-        persistWorkout(workout);
+        try {
+            await persistWorkout(workout);
+        } catch (e) {
+            log(`Auto-save cloud sync failed: ${e.message || e}`);
+        }
         historyFab.classList.remove('hidden');
         log(`Auto-saved on disconnect: ${sd.distance.toFixed(2)} km, ${formatDuration(sd.time)}`);
     }
