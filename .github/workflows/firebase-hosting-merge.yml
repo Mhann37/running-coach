@@ -14,3 +14,5 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RUNNING_COACH_EE164 }}
           channelId: live
           projectId: running-coach-ee164
+          firebaseToolsVersion: 13.29.1
+          entryPoint: "."
